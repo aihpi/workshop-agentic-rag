@@ -1,70 +1,91 @@
 <div style="background-color: #ffffff; color: #000000; padding: 10px;">
-<img src="00_aisc\img\logo_aisc_bmftr.jpg">
-<h1> Your title.
+<img src="assets/logo_aisc_bmftr.jpg">
+<h1>Workshop: Agentic RAG</h1>
 </div>
 
-Your Project Description with a nice image
+Build an agentic Retrieval-Augmented Generation (RAG) system using LLM tool-calling, Qdrant vector search, and Chainlit.
 
-## Features
+## Architecture
 
-- **Key Feature 1**: A description of the Key features
-- **Key Feature 2**: A description of the Key features
+```
+workshop-agentic-rag/
+  app/            # Chainlit chat app with RAG agent
+  ingestion/      # Chainlit UI for document upload & vector ingestion
+  k8s/            # Kubernetes deployment manifests
+  Dockerfile      # Multi-target build (app / ingestion)
+  system.md       # System prompt for the RAG agent
+```
 
-## Setup and Installation
+### Components
+
+| Service | Description | Port |
+|---------|-------------|------|
+| **app** | Chainlit chat interface with LLM agent + Qdrant RAG tool | 8000 |
+| **ingestion** | Chainlit upload UI — parse docs via Docling, embed, store in Qdrant | 8001 |
+| **Qdrant** | Vector database for document embeddings | 6333 |
+| **PostgreSQL** | Chat thread persistence & authentication | 5432 |
+| **LiteLLM** | LLM proxy for chat and embedding models | 4000 |
+
+## Quick Start
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- NVIDIA GPU with CUDA support (optional, but recommended for faster performance)
+- Access to a LiteLLM proxy (or OpenAI-compatible API)
 
-### Quick Start
+### 1. Configure
 
-1. Clone the repository:
-   ```bash
-   git clone ...
-   cd ...
-   ```
+```bash
+# Chat app
+cp app/.env.example app/.env
+# Edit app/.env with your LiteLLM endpoint and API key
 
-2. Run the setup or install dependencies:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
+# Ingestion app
+cp ingestion/.env.example ingestion/.env
+# Edit ingestion/.env with matching Qdrant + LiteLLM settings
+```
 
-3. Access the application:
-   - Frontend: ...
-   - Backend API: ...
+### 2. Start services
 
-## User Guide
+```bash
+cd app
+docker compose up -d
+```
 
-### Using the Tool
-1. A brief description of using the tool.
-2. Be clear and simple.
+This starts the chat app, PostgreSQL, and Qdrant.
 
-### Recommendations
-Any additional hints for using the tool.
+### 3. Ingest documents
 
+Option A — **Upload via UI**: Start the ingestion app and upload PDFs through the browser.
 
-## Limitations
+```bash
+cd ingestion
+docker build -t workshop-ingestion .
+docker run --rm --env-file .env -p 8001:8001 workshop-ingestion
+```
 
-- **Limitation 1**: List of Limitations
-- **Limitation 2**: List of Limitations
+Option B — **Bulk ingest**: Use the CLI script in `app/` for batch ingestion.
 
+```bash
+cd app
+python ingest_docling.py --docling-json-dir /path/to/json/exports
+```
 
-## References
+### 4. Chat
 
-- [Reference 1](https://hpi.de/kisz)
-- [Reference 2](https://hpi.de/kisz)
+Open http://localhost:8000 and start asking questions.
 
-## Author
-- [Your Name](https://hpi.de/kisz)
+## Kubernetes Deployment
+
+See [k8s/](k8s/) for deployment manifests.
 
 ## License
 
+See [LICENSE](LICENSE).
 
 ---
 
 ## Acknowledgements
-<img src="00_aisc/img/logo_bmftr_de.png" alt="drawing" style="width:170px;"/>
+<img src="assets/logo_bmftr_de.png" alt="drawing" style="width:170px;"/>
 
 The [AI Service Centre Berlin Brandenburg](http://hpi.de/kisz) is funded by the [Federal Ministry of Research, Technology and Space](https://www.bmbf.de/) under the funding code 16IS22092.

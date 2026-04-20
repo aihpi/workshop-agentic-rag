@@ -1,0 +1,100 @@
+{
+  "_comment": "Chat-Profile für IT-Grundschutz Chatbot - Anpassbar durch Administratoren",
+  "_documentation": "Siehe apps/chainlit/CHAT_PROFILES.md für Anleitungen zur Anpassung",
+
+  "profiles": [
+    {
+      "id": "isb",
+      "name": "Informationssicherheitsbeauftragte",
+      "icon": "/public/icons/shield.svg",
+      "description": "Verantwortlich für die Informationssicherheit der Institution",
+      "markdown_description": "Als **Informationssicherheitsbeauftragte/r** erhalten Sie Antworten mit Fokus auf:\n- Strategische Sicherheitskonzepte\n- Risikomanagement und Compliance\n- Berichterstattung an die Geschäftsführung\n- Koordination von Sicherheitsmaßnahmen",
+      "relevant_bausteine": ["ISMS", "ORP", "CON", "DER"],
+      "relevant_topics": [
+        "Informationssicherheitsmanagement",
+        "Risikobewertung",
+        "Sicherheitskonzepte",
+        "Compliance",
+        "Audit",
+        "Notfallmanagement"
+      ],
+      "prompt_context": "Du antwortest einer Person in der Rolle Informationssicherheitsbeauftragte/r (ISB). Fokussiere auf strategische Aspekte, Management-Perspektive, Compliance und die Koordination von Sicherheitsmaßnahmen. Verweise auf relevante Verantwortlichkeiten und Berichtspflichten."
+    },
+    {
+      "id": "fachverantwortlich",
+      "name": "Fachverantwortliche",
+      "icon": "/public/icons/briefcase.svg",
+      "description": "Verantwortlich für fachliche Prozesse und deren Sicherheitsanforderungen",
+      "markdown_description": "Als **Fachverantwortliche/r** erhalten Sie Antworten mit Fokus auf:\n- Prozessbezogene Sicherheitsmaßnahmen\n- Schutzbedarfsfeststellung für Fachanwendungen\n- Integration von Sicherheit in Fachprozesse\n- Zusammenarbeit mit IT und ISB",
+      "relevant_bausteine": ["ORP", "APP", "CON"],
+      "relevant_topics": [
+        "Prozesssicherheit",
+        "Fachanwendungen",
+        "Schutzbedarf",
+        "Datenklassifizierung",
+        "Zugriffsrechte"
+      ],
+      "prompt_context": "Du antwortest einer Person in der Rolle Fachverantwortliche/r. Fokussiere auf prozessbezogene Aspekte, die Integration von Sicherheit in Fachprozesse und die Zusammenarbeit mit IT und ISB. Erkläre Schutzbedarfsfeststellung und Datenklassifizierung praxisnah."
+    },
+    {
+      "id": "it_leitung",
+      "name": "Leitung IT-Betrieb",
+      "icon": "/public/icons/server.svg",
+      "description": "Leitung des IT-Betriebs mit strategischer und operativer Verantwortung",
+      "markdown_description": "Als **Leitung IT-Betrieb** erhalten Sie Antworten mit Fokus auf:\n- IT-Infrastruktur und Architektur\n- Ressourcenplanung und Budgetierung\n- IT-Service-Management\n- Technische Sicherheitskonzepte",
+      "relevant_bausteine": ["OPS", "NET", "SYS", "INF"],
+      "relevant_topics": [
+        "IT-Infrastruktur",
+        "Netzwerksicherheit",
+        "Server-Management",
+        "Patch-Management",
+        "Monitoring",
+        "IT-Service-Management"
+      ],
+      "prompt_context": "Du antwortest einer Person in der Rolle Leitung IT-Betrieb. Fokussiere auf IT-Infrastruktur, strategische IT-Planung, Ressourcenmanagement und Service-Management. Berücksichtige sowohl technische als auch organisatorische Aspekte."
+    },
+    {
+      "id": "it_durchfuehrung",
+      "name": "Durchführungsverantwortliche IT-Betrieb",
+      "icon": "/public/icons/settings.svg",
+      "description": "Operative Umsetzung von IT-Maßnahmen und technischer Betrieb",
+      "markdown_description": "Als **Durchführungsverantwortliche/r IT-Betrieb** erhalten Sie Antworten mit Fokus auf:\n- Konkrete technische Umsetzung\n- Konfigurationsanleitungen\n- Härtungsmaßnahmen\n- Troubleshooting und Incident-Response",
+      "relevant_bausteine": ["OPS", "NET", "SYS", "APP"],
+      "relevant_topics": [
+        "Systemhärtung",
+        "Konfiguration",
+        "Patch-Management",
+        "Backup",
+        "Logging",
+        "Incident-Response",
+        "Technische Maßnahmen"
+      ],
+      "prompt_context": "Du antwortest einer Person in der Rolle Durchführungsverantwortliche/r IT-Betrieb. Gib konkrete, technische und praxisnahe Anleitungen zur Umsetzung von Sicherheitsmaßnahmen. Fokussiere auf Konfiguration, Härtung und operative Tätigkeiten."
+    },
+    {
+      "id": "leitung",
+      "name": "Institutsleitung / Geschäftsführung",
+      "icon": "/public/icons/building.svg",
+      "description": "Oberste Leitungsebene mit Gesamtverantwortung für Informationssicherheit",
+      "markdown_description": "Als **Institutsleitung / Geschäftsführung** erhalten Sie Antworten mit Fokus auf:\n- Strategische Entscheidungen\n- Governance und Compliance\n- Ressourcenbereitstellung\n- Haftung und Verantwortlichkeiten",
+      "relevant_bausteine": ["ISMS", "ORP", "CON"],
+      "relevant_topics": [
+        "Governance",
+        "Compliance",
+        "Risikomanagement",
+        "Ressourcenplanung",
+        "Verantwortlichkeiten",
+        "Leitlinie Informationssicherheit"
+      ],
+      "prompt_context": "Du antwortest einer Person in der Rolle Institutsleitung/Geschäftsführung. Fokussiere auf Governance, strategische Entscheidungen, Gesamtverantwortung und Ressourcenbereitstellung. Halte Antworten kompakt und entscheidungsorientiert. Vermeide zu technische Details."
+    }
+  ],
+
+  "default_profile": "isb",
+
+  "settings": {
+    "allow_profile_change": true,
+    "show_profile_in_response": false,
+    "combine_with_chat_history": true
+  }
+}

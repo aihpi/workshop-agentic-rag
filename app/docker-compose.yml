@@ -1,0 +1,159 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gski-postgres
+    environment:
+      POSTGRES_DB: chainlit
+      POSTGRES_USER: chainlit
+      POSTGRES_PASSWORD: chainlit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainlit -d chainlit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: gski-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+
+  chainlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gski-chainlit
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ingest:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://chainlit:chainlit@postgres:5432/chainlit}
+      CHAINLIT_AUTH_SECRET: ${CHAINLIT_AUTH_SECRET:-change-me}
+      CHAINLIT_AUTH_USERNAME: ${CHAINLIT_AUTH_USERNAME:-admin}
+      CHAINLIT_AUTH_PASSWORD: ${CHAINLIT_AUTH_PASSWORD:-admin}
+      CHAINLIT_INIT_DB: ${CHAINLIT_INIT_DB:-true}
+      # IMPORTANT: inside Docker network, use service DNS name (not localhost)
+      QDRANT_URL: http://qdrant:6333
+      # IMPORTANT: in container, use mounted absolute paths
+      DATA_RAW_DIR: /data/data_raw
+      SYSTEM_PROMPT_PATH: /workspace/system.md
+      LANGFLOW_BASE_URL: ${LANGFLOW_BASE_URL:-http://langflow:7860}
+    volumes:
+      - .:/app
+      - ./.chainlit:/app/.chainlit
+      - ./.files:/app/.files
+      - ../../data:/data
+      - ../../system.md:/workspace/system.md:ro
+    ports:
+      - "8000:8000"
+
+  langflow:
+    profiles: ["langflow"]
+    image: langflowai/langflow:latest
+    container_name: gski-langflow
+    environment:
+      LANGFLOW_HOST: 0.0.0.0
+      LANGFLOW_PORT: 7860
+    ports:
+      - "7860:7860"
+    volumes:
+      - langflow_data:/app/langflow
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gski-ingest
+    depends_on:
+      qdrant:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      # IMPORTANT: inside Docker network, use service DNS name (not localhost)
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-grundschutz}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL}
+      LITELLM_API_KEY: ${LITELLM_API_KEY}
+      EMBED_MODEL: ${EMBED_MODEL:-text-embedding-3-large}
+      INGEST_DOCLING_JSON_DIR: ${INGEST_DOCLING_JSON_DIR:-/data/data_docling_json_ocr}
+      INGEST_RECREATE: ${INGEST_RECREATE:-false}
+      INGEST_BATCH_SIZE: ${INGEST_BATCH_SIZE:-256}
+      INGEST_MAX_BATCH_CHARS: ${INGEST_MAX_BATCH_CHARS:-20000}
+    volumes:
+      - ../../data:/data
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        echo "Waiting for Qdrant at $$QDRANT_URL ...";
+        python - <<'PY'
+        import os
+        import sys
+        import time
+        import urllib.request
+
+        base = (os.environ.get("QDRANT_URL") or "http://qdrant:6333").rstrip("/")
+        url = f"{base}/collections"
+
+        for i in range(60):
+            try:
+                with urllib.request.urlopen(url, timeout=2) as resp:
+                    if 200 <= resp.status < 500:
+                        print(f"Qdrant is reachable: {url} (status={resp.status})")
+                        sys.exit(0)
+            except Exception:
+                pass
+            time.sleep(2)
+
+        print(f"Qdrant did not become ready in time: {url}", file=sys.stderr)
+        sys.exit(1)
+        PY
+        if [ "$$INGEST_RECREATE" != "true" ]; then
+          echo "Checking if collection '$$QDRANT_COLLECTION' already exists ...";
+          python - <<'PY'
+        import json
+        import os
+        import sys
+        import urllib.request
+
+        base = (os.environ.get("QDRANT_URL") or "http://qdrant:6333").rstrip("/")
+        collection = os.environ.get("QDRANT_COLLECTION") or "grundschutz"
+        url = f"{base}/collections"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        names = {c.get("name") for c in payload.get("result", {}).get("collections", []) if isinstance(c, dict)}
+        if collection in names:
+            print(f"Collection already exists: {collection}. Skipping ingestion.")
+            sys.exit(0)
+        print(f"Collection not found: {collection}. Ingestion will run.")
+        sys.exit(1)
+        PY
+          if [ "$$?" = "0" ]; then
+            exit 0;
+          fi;
+        fi;
+        python ingest_docling.py \
+          --docling-json-dir "$$INGEST_DOCLING_JSON_DIR" \
+          --collection "$$QDRANT_COLLECTION" \
+          --batch-size "$$INGEST_BATCH_SIZE" \
+          --max-batch-chars "$$INGEST_MAX_BATCH_CHARS" \
+          $$( [ "$$INGEST_RECREATE" = "true" ] && echo "--recreate" );
+    restart: "no"
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  langflow_data:
