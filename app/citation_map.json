@@ -1,0 +1,32 @@
+{
+  "standard_200_1": {
+    "author": "Bundesamt für Sicherheit in der Informationstechnik (BSI)",
+    "year": "2023",
+    "title": "BSI-Standard 200-1: IT-Grundschutz",
+    "publisher": "BSI"
+  },
+  "standard_200_2": {
+    "author": "Bundesamt für Sicherheit in der Informationstechnik (BSI)",
+    "year": "2023",
+    "title": "BSI-Standard 200-2: IT-Grundschutz-Methodik",
+    "publisher": "BSI"
+  },
+  "standard_200_3": {
+    "author": "Bundesamt für Sicherheit in der Informationstechnik (BSI)",
+    "year": "2023",
+    "title": "BSI-Standard 200-3: Risikoanalyse auf der Basis von IT-Grundschutz",
+    "publisher": "BSI"
+  },
+  "standard_200_4": {
+    "author": "Bundesamt für Sicherheit in der Informationstechnik (BSI)",
+    "year": "2023",
+    "title": "BSI-Standard 200-4: Notfallmanagement",
+    "publisher": "BSI"
+  },
+  "IT_Grundschutz_Kompendium_Edition2023": {
+    "author": "Bundesamt für Sicherheit in der Informationstechnik (BSI)",
+    "year": "2023",
+    "title": "IT-Grundschutz-Kompendium (Edition 2023)",
+    "publisher": "BSI"
+  }
+}
