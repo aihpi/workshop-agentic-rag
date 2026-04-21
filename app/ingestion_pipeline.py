@@ -1,7 +1,6 @@
 """Shared document ingestion pipeline: parse → chunk → embed → upsert.
 
-Used by both the standalone ingestion Chainlit app (ingestion/app.py) and the
-per-user FastAPI upload endpoint (app/api_routes.py).
+Used by the per-user FastAPI upload endpoint (app/api_routes.py).
 """
 
 from __future__ import annotations

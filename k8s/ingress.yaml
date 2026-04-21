@@ -17,10 +17,3 @@ spec:
                 name: workshop-app
                 port:
                   number: 8000
-          - path: /ingestion
-            pathType: Prefix
-            backend:
-              service:
-                name: workshop-ingestion
-                port:
-                  number: 8001
