@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: workshop-app:latest
+          image: ghcr.io/aihpi/workshop-agentic-rag:latest
           ports:
             - containerPort: 8000
           envFrom:
