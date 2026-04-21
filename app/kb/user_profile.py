@@ -14,14 +14,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from chat_history import (
+from chat.chat_history import (
     get_user_message_count,
     get_user_message_history,
     get_user_profile,
     upsert_user_profile,
 )
-from llm import chat, embed
-from settings import (
+from core.llm import chat, embed
+from core.settings import (
     CHAT_DB_PATH,
     PERSONALIZATION_ENABLED,
     PROFILE_MIN_MESSAGES,

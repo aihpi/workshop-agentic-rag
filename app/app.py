@@ -20,7 +20,7 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
-from chat_history import (
+from chat.chat_history import (
     add_chat_message,
     create_chat_session,
     export_all_sessions_openai_jsonl,
@@ -35,9 +35,9 @@ from chat_history import (
     set_user_selected_chat_profile,
     update_chat_session_metadata,
 )
-from langflow_client import LangflowError, run_langflow
-from llm import chat, message_to_dict
-from native_chat import (
+from langflow.langflow_client import LangflowError, run_langflow
+from core.llm import chat, message_to_dict
+from chat.native_chat import (
     check_user_exists,
     create_user,
     ensure_native_schema,
@@ -48,8 +48,8 @@ from native_chat import (
     update_user_admin_fields,
     upsert_user_on_login,
 )
-from rag_tool import build_context, extract_page, extract_source_file, format_citations, retrieve, personalized_retrieve
-from settings import (
+from kb.rag_tool import build_context, extract_page, extract_source_file, format_citations, retrieve, personalized_retrieve
+from core.settings import (
     ADMIN_IDENTIFIERS,
     CHAT_DB_PATH,
     CHAT_EXPORT_DIR,
@@ -72,7 +72,7 @@ from settings import (
     SYSTEM_PROMPT_PATH,
     TOP_K,
 )
-from user_kb import (
+from kb.user_kb import (
     SHARED_KB_ID,
     get_document,
     get_kb,
@@ -81,7 +81,7 @@ from user_kb import (
     list_kbs,
     list_user_starters,
 )
-from user_profile import (
+from kb.user_profile import (
     determine_balance,
     load_user_profile,
     update_user_profile,
@@ -2527,7 +2527,7 @@ async def on_app_startup() -> None:
     # the Postgres native chat schema is configured — they only depend on SQLite
     # + Chainlit auth.
     if not getattr(chainlit_fastapi_app.state, "user_api_routes_added", False):
-        from api_routes import register_user_api_routes
+        from api.api_routes import register_user_api_routes
 
         user_routes = register_user_api_routes(chainlit_fastapi_app, SYSTEM_PROMPT)
 

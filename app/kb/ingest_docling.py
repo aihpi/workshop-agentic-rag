@@ -14,13 +14,13 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from llm import embed
-from settings import QDRANT_API_KEY, QDRANT_COLLECTION, QDRANT_URL
+from core.llm import embed
+from core.settings import QDRANT_API_KEY, QDRANT_COLLECTION, QDRANT_URL
 
 
 def _default_pdf_dir() -> Path:
     script = Path(__file__).resolve()
-    # Local repo layout: <repo>/apps/chainlit/ingest_docling.py
+    # Local repo layout: <repo>/app/kb/ingest_docling.py
     if len(script.parents) >= 3:
         return script.parents[2] / "data" / "data_raw"
     # Container fallback: caller should usually pass --docling-json-dir explicitly.
