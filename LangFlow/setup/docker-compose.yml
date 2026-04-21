@@ -1,0 +1,31 @@
+services:
+  langflow:
+    image: langflowai/langflow:latest
+    ports:
+      - "7860:7860"
+    environment:
+      - LANGFLOW_STORE_ENVIRONMENT_VARIABLES=true
+      - LANGFLOW_REMOVE_API_KEYS=false
+      - LANGFLOW_AUTO_LOGIN=true
+    env_file:
+      - .env
+    volumes:
+      - langflow_data:/app/langflow
+    depends_on:
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-}
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  langflow_data:
+  qdrant_data:
