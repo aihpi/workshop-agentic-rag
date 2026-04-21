@@ -1,0 +1,46 @@
+name: PR — Docker Build Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - app/**
+      - system.md
+      - .github/workflows/docker-build.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ci-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build (load into local docker, no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: workshop-agentic-rag:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Import smoke-check
+        run: |
+          docker run --rm --entrypoint python workshop-agentic-rag:ci -c "
+          from core import settings, llm
+          from chat import chat_history, native_chat
+          from kb import user_kb, user_profile, rag_tool, ingestion_pipeline, ingest_docling
+          from api import api_routes, prompt_generator
+          from langflow import langflow_client
+          print('imports ok')
+          "
