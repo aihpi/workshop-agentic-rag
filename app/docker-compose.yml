@@ -19,10 +19,12 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: gski-qdrant
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
-      - "6333:6333"
+      - "127.0.0.1:6333:6333"
 
   chainlit:
     build:
@@ -46,8 +48,10 @@ services:
       CHAINLIT_INIT_DB: ${CHAINLIT_INIT_DB:-true}
       # IMPORTANT: inside Docker network, use service DNS name (not localhost)
       QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
       # IMPORTANT: in container, use mounted absolute paths
       DATA_RAW_DIR: /data/data_raw
+      DATA_KB_DOCS_DIR: /data/kb_docs
       SYSTEM_PROMPT_PATH: /workspace/system.md
       LANGFLOW_BASE_URL: ${LANGFLOW_BASE_URL:-http://langflow:7860}
     volumes:
@@ -55,7 +59,7 @@ services:
       - ./.chainlit:/app/.chainlit
       - ./.files:/app/.files
       - ../../data:/data
-      - ../../system.md:/workspace/system.md:ro
+      - ../system.md:/workspace/system.md:ro
     ports:
       - "8000:8000"
 
@@ -84,6 +88,7 @@ services:
     environment:
       # IMPORTANT: inside Docker network, use service DNS name (not localhost)
       QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-grundschutz}
       LITELLM_BASE_URL: ${LITELLM_BASE_URL}
       LITELLM_API_KEY: ${LITELLM_API_KEY}
@@ -107,10 +112,13 @@ services:
 
         base = (os.environ.get("QDRANT_URL") or "http://qdrant:6333").rstrip("/")
         url = f"{base}/collections"
+        api_key = os.environ.get("QDRANT_API_KEY") or ""
+        headers = {"api-key": api_key} if api_key else {}
 
         for i in range(60):
             try:
-                with urllib.request.urlopen(url, timeout=2) as resp:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=2) as resp:
                     if 200 <= resp.status < 500:
                         print(f"Qdrant is reachable: {url} (status={resp.status})")
                         sys.exit(0)
@@ -132,7 +140,10 @@ services:
         base = (os.environ.get("QDRANT_URL") or "http://qdrant:6333").rstrip("/")
         collection = os.environ.get("QDRANT_COLLECTION") or "grundschutz"
         url = f"{base}/collections"
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        api_key = os.environ.get("QDRANT_API_KEY") or ""
+        headers = {"api-key": api_key} if api_key else {}
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
         names = {c.get("name") for c in payload.get("result", {}).get("collections", []) if isinstance(c, dict)}
         if collection in names:

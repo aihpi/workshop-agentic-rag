@@ -125,14 +125,14 @@ cot = "full"
 
 # Specify a CSS file that can be used to customize the user interface.
 # The CSS file can be served from the public directory or via an external link.
-# custom_css = "/public/test.css"
+custom_css = "/public/custom.css"
 
 # Specify additional attributes for a custom CSS file
 # custom_css_attributes = "media=\"print\""
 
 # Specify a JavaScript file that can be used to customize the user interface.
 # The JavaScript file can be served from the public directory.
-# custom_js = "/public/test.js"
+custom_js = "/public/custom.js"
 
 # The style of alert boxes. Can be "classic" or "modern".
 alert_style = "classic"
@@ -165,12 +165,19 @@ default_avatar_file_url = ""
 # custom_build = "./public/build"
 
 # Specify optional one or more custom links in the header.
-# [[UI.header_links]]
-#     name = "Issues"
-#     display_name = "Report Issue"
-#     icon_url = "https://avatars.githubusercontent.com/u/128686189?s=200&v=4"
-#     url = "https://github.com/Chainlit/chainlit/issues"
-#     target = "_blank" (default)  # Optional: "_self", "_parent", "_top".
+[[UI.header_links]]
+    name = "settings"
+    display_name = "Einstellungen"
+    icon_url = "/public/icons/settings.svg"
+    url = "/settings/app"
+    target = "_self"
+
+[[UI.header_links]]
+    name = "admin-users"
+    display_name = "Benutzer"
+    icon_url = "/public/icons/briefcase.svg"
+    url = "/admin/app"
+    target = "_self"
 
 [meta]
 generated_by = "2.9.6"

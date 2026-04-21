@@ -32,3 +32,380 @@ a[href*="/sources/pdf/"]:hover {
   color: #163a5a !important;
   text-decoration: underline;
 }
+
+/* Keep the AISC-BB / BMFTR logo (white-background asset) readable in dark mode
+   by giving it a light backing plate and a bit of breathing room. Applies to
+   both the sidebar header logo and the standalone login-page logo. */
+html.dark a[href="/"] img[alt*="logo" i],
+html.dark header img[alt*="logo" i],
+html.dark img[src*="logo_dark"],
+html.dark img[src*="logo_light"] {
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+/* Login page: show the AISC-BB / BMFTR logo centered above the title,
+   medium-sized so it reads as a brand mark, not a hero image. */
+body.on-login-page img.logo,
+body.on-login-page img[alt="logo" i] {
+  max-height: 132px !important;
+  max-width: 360px !important;
+  height: auto !important;
+  width: auto !important;
+  margin: 0 auto 1.25rem !important;
+  display: block !important;
+}
+html.dark body.on-login-page img.logo,
+html.dark body.on-login-page img[alt="logo" i] {
+  background: #ffffff;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+/* Chat UI (not the login page): bump the sidebar/header logo so the brand
+   actually reads at a glance. Chainlit's default is tiny and renders as
+   <img class="logo" alt="logo" src="/logo?theme=...">. */
+body:not(.on-login-page) img.logo {
+  max-height: 132px !important;
+  height: auto !important;
+  max-width: 360px !important;
+  width: auto !important;
+  object-fit: contain !important;
+}
+
+/* In-app settings modal (iframe overlay over the Chainlit UI). */
+.settings-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: settings-modal-fade 140ms ease-out;
+}
+
+.settings-modal-overlay.open {
+  display: flex;
+}
+
+.settings-modal {
+  position: relative;
+  width: min(1100px, 100%);
+  height: min(860px, 100%);
+  background: var(--background, #ffffff);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-modal-iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: var(--background, #ffffff);
+}
+
+.settings-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.settings-modal-close:hover {
+  background: #ffffff;
+  transform: scale(1.05);
+}
+
+@keyframes settings-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Blocking usage-agreement modal (no close button, cannot be dismissed). */
+.terms-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.96);
+  backdrop-filter: blur(12px);
+  z-index: 10001;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: settings-modal-fade 140ms ease-out;
+}
+
+html.light .terms-modal-overlay,
+html:not(.dark) .terms-modal-overlay {
+  background: rgba(240, 242, 246, 0.96);
+}
+
+.terms-modal-overlay.open {
+  display: flex;
+}
+
+.terms-modal {
+  position: relative;
+  width: min(880px, 100%);
+  height: min(88vh, 900px);
+  background: var(--background, #ffffff);
+  color: var(--foreground, #111827);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terms-modal-logo {
+  padding: 1.75rem 2rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+.terms-modal-logo img {
+  max-width: min(620px, 100%);
+  max-height: 110px;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+}
+
+.terms-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.terms-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.terms-modal-langs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.terms-lang-btn {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  color: inherit;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.terms-lang-btn.active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.terms-modal-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 1.75rem 2.5rem;
+  line-height: 1.75;
+  font-size: 0.97rem;
+}
+
+.terms-modal-body h1,
+.terms-modal-body h2,
+.terms-modal-body h3,
+.terms-modal-body h4 {
+  margin: 1.1rem 0 0.4rem;
+  line-height: 1.3;
+}
+
+.terms-modal-body h2 { font-size: 1.05rem; }
+.terms-modal-body h3 { font-size: 0.98rem; }
+
+.terms-modal-body p { margin: 0.9rem 0; }
+.terms-modal-body ul {
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style-position: inside;
+}
+.terms-modal-body li { margin: 0.75rem 0; }
+.terms-modal-body hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 1rem 0;
+}
+.terms-modal-body a { color: #1f4e79; }
+
+.terms-modal-pdf-block {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.terms-modal-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  background: #1f4e79;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid #1f4e79;
+}
+.terms-modal-pdf-btn::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>") no-repeat center / contain;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>") no-repeat center / contain;
+}
+.terms-modal-pdf-btn:hover { background: #163a5a; border-color: #163a5a; }
+
+.terms-modal-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.terms-modal-consent {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+  flex: 1 1 320px;
+  line-height: 1.35;
+}
+
+.terms-consent-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #1f4e79;
+}
+
+.terms-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.terms-btn-decline,
+.terms-btn-accept {
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+}
+
+.terms-btn-accept {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.terms-btn-accept:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.terms-btn-decline:hover { background: rgba(0, 0, 0, 0.05); }
+.terms-btn-accept:not(:disabled):hover { background: #000000; }
+
+/* Dark-theme variants (Chainlit adds .dark on <html>). */
+html.dark .terms-modal {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+html.dark .terms-modal-header,
+html.dark .terms-modal-footer {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html.dark .terms-modal-footer {
+  background: rgba(255, 255, 255, 0.03);
+}
+html.dark .terms-lang-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+html.dark .terms-lang-btn.active {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #f3f4f6;
+}
+html.dark .terms-modal-body a,
+html.dark .terms-modal-link {
+  color: #93c5fd;
+}
+html.dark .terms-btn-decline,
+html.dark .terms-btn-accept {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+html.dark .terms-btn-accept {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #f3f4f6;
+}
+html.dark .terms-btn-decline:hover { background: rgba(255, 255, 255, 0.06); }
+html.dark .terms-btn-accept:not(:disabled):hover { background: #ffffff; }
+
+html.dark .terms-modal-pdf-block {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html.dark .terms-modal-pdf-btn {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+html.dark .terms-modal-pdf-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+html.dark .terms-consent-checkbox { accent-color: #93c5fd; }

@@ -1,67 +1,44 @@
-"""Chainlit-based document ingestion UI.
+"""Shared document ingestion pipeline: parse → chunk → embed → upsert.
 
-Upload PDF or text documents and ingest them into a Qdrant vector collection
-via Docling (parsing) and a hosted embedding model (via LiteLLM).
+Used by both the standalone ingestion Chainlit app (ingestion/app.py) and the
+per-user FastAPI upload endpoint (app/api_routes.py).
 """
 
 from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Awaitable, Callable, Iterable
 
-import chainlit as cl
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-import litellm
-
+from llm import embed
 from settings import (
     CHUNK_MAX_CHARS,
     CHUNK_OVERLAP,
     EMBED_BATCH_SIZE,
     EMBED_MAX_BATCH_CHARS,
-    EMBED_MODEL,
-    LITELLM_API_KEY,
-    LITELLM_BASE_URL,
-    MAX_FILE_SIZE_MB,
     QDRANT_API_KEY,
-    QDRANT_COLLECTION,
     QDRANT_URL,
 )
 
-# ---------------------------------------------------------------------------
-# Embedding helper
-# ---------------------------------------------------------------------------
-
-def _llm_kwargs() -> dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    if LITELLM_BASE_URL:
-        kwargs["api_base"] = LITELLM_BASE_URL
-    if LITELLM_API_KEY:
-        kwargs["api_key"] = LITELLM_API_KEY
-    return kwargs
-
-
-async def embed(texts: list[str]) -> list[list[float]]:
-    response = await litellm.aembedding(
-        model=EMBED_MODEL,
-        input=texts,
-        encoding_format="float",
-        **_llm_kwargs(),
-    )
-    data = sorted(response.data, key=lambda item: item["index"])
-    return [item["embedding"] for item in data]
+ProgressCallback = Callable[[int, int], Awaitable[None]]
+SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
 
 
 # ---------------------------------------------------------------------------
 # Chunking
 # ---------------------------------------------------------------------------
 
-def chunk_text(text: str, max_chars: int = CHUNK_MAX_CHARS, overlap: int = CHUNK_OVERLAP) -> Iterable[str]:
+def chunk_text(
+    text: str,
+    max_chars: int = CHUNK_MAX_CHARS,
+    overlap: int = CHUNK_OVERLAP,
+) -> Iterable[str]:
     cleaned = " ".join(text.split())
     if len(cleaned) <= max_chars:
         yield cleaned
@@ -87,7 +64,8 @@ def _extract_page_from_prov(prov: Any) -> int | None:
         return pn if isinstance(pn, int) else None
     if isinstance(prov, list):
         page_numbers = [
-            p.get("page_no") for p in prov
+            p.get("page_no")
+            for p in prov
             if isinstance(p, dict) and isinstance(p.get("page_no"), int)
         ]
         return min(page_numbers) if page_numbers else None
@@ -141,7 +119,6 @@ def _ordered_text_indices(data: dict[str, Any]) -> list[int]:
 
 
 def _sections_from_docling_dict(data: dict[str, Any], file_name: str) -> list[dict[str, Any]]:
-    """Extract sections from a Docling export dict (structured mode)."""
     texts = data.get("texts")
     if not isinstance(texts, list):
         return []
@@ -204,7 +181,6 @@ def _sections_from_docling_dict(data: dict[str, Any], file_name: str) -> list[di
 
 
 def _sections_from_pages(document: Any, file_name: str) -> list[dict[str, Any]]:
-    """Fallback: extract page-by-page from a Docling document object."""
     pages = getattr(document, "pages", None)
     if not pages:
         return []
@@ -234,7 +210,6 @@ def _sections_from_pages(document: Any, file_name: str) -> list[dict[str, Any]]:
 
 
 def parse_pdf(path: Path) -> list[dict[str, Any]]:
-    """Parse a PDF via Docling and return a list of section dicts."""
     pdf_opts = PdfPipelineOptions(do_ocr=False)
     converter = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_opts)},
@@ -244,7 +219,6 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
     if document is None:
         return []
 
-    # Try structured export first
     export_dict = None
     if hasattr(document, "export_to_dict"):
         export_dict = document.export_to_dict()
@@ -252,28 +226,47 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
     if sections:
         return sections
 
-    # Fallback: page-level extraction
     sections = _sections_from_pages(document, path.name)
     if sections:
         return sections
 
-    # Last resort: full document text
     text = ""
     if hasattr(document, "export_to_markdown"):
         text = document.export_to_markdown()
     elif hasattr(document, "export_to_text"):
         text = document.export_to_text()
     if isinstance(text, str) and text.strip():
-        return [{"text": text.strip(), "file": path.name, "section_title": "", "page_start": None, "page_end": None}]
+        return [{
+            "text": text.strip(),
+            "file": path.name,
+            "section_title": "",
+            "page_start": None,
+            "page_end": None,
+        }]
     return []
 
 
 def parse_text_file(path: Path) -> list[dict[str, Any]]:
-    """Read a plain text / markdown file and return it as a single section."""
     text = path.read_text(encoding="utf-8", errors="replace").strip()
     if not text:
         return []
-    return [{"text": text, "file": path.name, "section_title": "", "page_start": None, "page_end": None}]
+    return [{
+        "text": text,
+        "file": path.name,
+        "section_title": "",
+        "page_start": None,
+        "page_end": None,
+    }]
+
+
+def parse_file(path: Path) -> list[dict[str, Any]]:
+    """Dispatch to the right parser based on extension."""
+    ext = path.suffix.lower()
+    if ext == ".pdf":
+        return parse_pdf(path)
+    if ext in {".txt", ".md"}:
+        return parse_text_file(path)
+    raise ValueError(f"Unsupported file extension: {ext}")
 
 
 # ---------------------------------------------------------------------------
@@ -299,20 +292,40 @@ def _ensure_collection(client: QdrantClient, name: str, vector_size: int) -> Non
 
 async def ingest_sections(
     sections: list[dict[str, Any]],
-    collection: str = QDRANT_COLLECTION,
-    msg: cl.Message | None = None,
+    *,
+    collection: str,
+    kb_id: str | None = None,
+    document_id: str | None = None,
+    progress: ProgressCallback | None = None,
 ) -> int:
-    """Chunk, embed, and upsert sections into Qdrant. Returns total point count."""
+    """Chunk, embed, and upsert sections into a Qdrant collection.
+
+    Args:
+        sections: Output of parse_pdf / parse_text_file.
+        collection: Target Qdrant collection name.
+        kb_id: Knowledge base id, stored in payload for scoped retrieval.
+        document_id: Stable document id, stored in payload so a whole upload
+            can be deleted with a single filter.
+        progress: Optional async callback (current, total) called during embed.
+
+    Returns:
+        Total number of points upserted.
+    """
     if not sections:
         return 0
 
-    # Build chunks with metadata
     chunks: list[tuple[str, dict[str, Any]]] = []
     for idx, section in enumerate(sections, start=1):
         text = section["text"]
         for chunk_idx, chunk in enumerate(chunk_text(text), start=1):
-            doc_id = f"upload:{section['file']}:s{idx}:c{chunk_idx}"
-            payload = {
+            doc_key_parts = [
+                kb_id or "shared",
+                document_id or section["file"],
+                f"s{idx}",
+                f"c{chunk_idx}",
+            ]
+            doc_key = ":".join(doc_key_parts)
+            payload: dict[str, Any] = {
                 "text": chunk,
                 "file": section["file"],
                 "source": section["file"],
@@ -320,133 +333,75 @@ async def ingest_sections(
                 "page_start": section.get("page_start"),
                 "page_end": section.get("page_end"),
             }
-            chunks.append((doc_id, payload))
+            if kb_id:
+                payload["kb_id"] = kb_id
+            if document_id:
+                payload["document_id"] = document_id
+            chunks.append((doc_key, payload))
 
     if not chunks:
         return 0
 
     client = _get_client()
 
-    # Embed in batches
     all_points: list[PointStruct] = []
     batch_start = 0
     total = len(chunks)
     while batch_start < total:
         batch: list[tuple[str, dict[str, Any]]] = []
         batch_chars = 0
-        for doc_id, payload in chunks[batch_start: batch_start + EMBED_BATCH_SIZE]:
+        for doc_key, payload in chunks[batch_start: batch_start + EMBED_BATCH_SIZE]:
             doc_len = len(payload["text"])
             if batch and batch_chars + doc_len > EMBED_MAX_BATCH_CHARS:
                 break
-            batch.append((doc_id, payload))
+            batch.append((doc_key, payload))
             batch_chars += doc_len
 
         texts = [p["text"] for _, p in batch]
         vectors = await embed(texts)
 
-        for (doc_id, payload), vec in zip(batch, vectors, strict=True):
+        for (doc_key, payload), vec in zip(batch, vectors, strict=True):
             all_points.append(PointStruct(
-                id=_point_id(doc_id),
+                id=_point_id(doc_key),
                 vector=vec,
                 payload=payload,
             ))
 
         batch_start += len(batch)
-        if msg:
-            progress = min(batch_start, total)
-            await msg.stream_token(f"\rEmbedding: {progress}/{total} chunks...")
+        if progress is not None:
+            await progress(min(batch_start, total), total)
 
-    # Ensure collection exists
     vector_size = len(all_points[0].vector)
     _ensure_collection(client, collection, vector_size)
 
-    # Upsert in batches of 100
     for i in range(0, len(all_points), 100):
         client.upsert(collection_name=collection, points=all_points[i: i + 100])
 
     return len(all_points)
 
 
-# ---------------------------------------------------------------------------
-# Chainlit handlers
-# ---------------------------------------------------------------------------
+def delete_document_points(collection: str, document_id: str) -> None:
+    """Remove every vector belonging to a document_id from a collection."""
+    from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
 
-SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
-
-
-@cl.on_chat_start
-async def on_start():
-    await cl.Message(
-        content=(
-            "**Admin / Bulk-Ingestion**\n\n"
-            f"Diese UI schreibt in die *gemeinsame* Qdrant-Sammlung `{QDRANT_COLLECTION}`. "
-            "Für persönliche, nur dem eigenen Account zugängliche Wissensdatenbanken "
-            "verwenden Sie bitte die Einstellungen im Chat-Bereich (`/settings/app`), "
-            "die Dateien per REST-API in benannte, pro Nutzer getrennte Sammlungen laden.\n\n"
-            f"Unterstützt PDF, TXT, Markdown (max {MAX_FILE_SIZE_MB} MB pro Datei). "
-            "Dateien anhängen, um loszulegen."
-        ),
-    ).send()
+    client = _get_client()
+    try:
+        client.delete(
+            collection_name=collection,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
+                )
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Collection might not exist yet (no uploads) — treat as no-op.
+        print(f"[WARN] delete_document_points collection={collection} err={exc}")
 
 
-@cl.on_message
-async def on_message(message: cl.Message):
-    files = message.elements or []
-    supported_files = [
-        f for f in files
-        if isinstance(f, cl.File) and Path(f.name).suffix.lower() in SUPPORTED_EXTENSIONS
-    ]
-
-    if not supported_files:
-        await cl.Message(
-            content="Please attach at least one PDF, TXT, or Markdown file.",
-        ).send()
-        return
-
-    total_points = 0
-    results: list[str] = []
-
-    for file in supported_files:
-        file_path = Path(file.path)
-        file_size_mb = file_path.stat().st_size / (1024 * 1024)
-
-        if file_size_mb > MAX_FILE_SIZE_MB:
-            results.append(f"**{file.name}**: skipped (exceeds {MAX_FILE_SIZE_MB} MB limit)")
-            continue
-
-        status_msg = cl.Message(content=f"Processing **{file.name}**...")
-        await status_msg.send()
-
-        try:
-            # Parse
-            ext = file_path.suffix.lower()
-            if ext == ".pdf":
-                sections = parse_pdf(file_path)
-            else:
-                sections = parse_text_file(file_path)
-
-            if not sections:
-                results.append(f"**{file.name}**: no text content extracted")
-                await status_msg.update(content=f"**{file.name}**: no text found")
-                continue
-
-            await status_msg.update(
-                content=f"**{file.name}**: extracted {len(sections)} sections, embedding..."
-            )
-
-            # Ingest
-            count = await ingest_sections(sections, msg=status_msg)
-            total_points += count
-            results.append(f"**{file.name}**: {len(sections)} sections -> {count} chunks ingested")
-            await status_msg.update(
-                content=f"**{file.name}**: {count} chunks ingested"
-            )
-
-        except Exception as exc:
-            results.append(f"**{file.name}**: error - {exc}")
-            await status_msg.update(content=f"**{file.name}**: error - {exc}")
-
-    summary = "\n".join(f"- {r}" for r in results)
-    await cl.Message(
-        content=f"**Ingestion complete**\n\n{summary}\n\nTotal: **{total_points}** chunks stored in `{QDRANT_COLLECTION}`.",
-    ).send()
+def drop_collection(collection: str) -> None:
+    client = _get_client()
+    try:
+        client.delete_collection(collection_name=collection)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[WARN] drop_collection collection={collection} err={exc}")

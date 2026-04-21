@@ -36,6 +36,21 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'password_hash') THEN
     ALTER TABLE "User" ADD COLUMN password_hash TEXT;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'status') THEN
+    ALTER TABLE "User" ADD COLUMN status TEXT NOT NULL DEFAULT 'approved';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'role') THEN
+    ALTER TABLE "User" ADD COLUMN role TEXT NOT NULL DEFAULT 'user';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'lastLoginAt') THEN
+    ALTER TABLE "User" ADD COLUMN "lastLoginAt" TIMESTAMP NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'acceptedTermsAt') THEN
+    ALTER TABLE "User" ADD COLUMN "acceptedTermsAt" TIMESTAMP NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'acceptedTermsVersion') THEN
+    ALTER TABLE "User" ADD COLUMN "acceptedTermsVersion" TEXT NULL;
+  END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS "Thread" (
@@ -173,6 +188,199 @@ async def get_user_by_email(
             email,
         )
         return dict(row) if row else None
+    finally:
+        await conn.close()
+
+
+async def upsert_user_on_login(
+    database_url: str,
+    *,
+    identifier: str,
+    provider: str,
+    email: str | None = None,
+    extra_metadata: dict[str, Any] | None = None,
+    admin_identifiers: list[str] | None = None,
+) -> dict[str, Any]:
+    """Insert or refresh a user row on every login.
+
+    - Creates the row if missing (default status='approved', role='user').
+    - Bumps lastLoginAt.
+    - Auto-promotes to role='admin' if identifier is in admin_identifiers
+      (only transitions up; never demotes an existing admin).
+    - Returns the row so callers can enforce status/role checks.
+    """
+    admins = {a.strip() for a in (admin_identifiers or []) if a and a.strip()}
+    should_admin = identifier in admins
+
+    metadata_json = json.dumps(
+        {"provider": provider, **(extra_metadata or {})}
+    )
+
+    conn = await asyncpg.connect(database_url)
+    try:
+        # Create if missing. Existing rows are left alone here so admin edits stick.
+        await conn.execute(
+            """
+            INSERT INTO "User" (identifier, email, metadata, status, role)
+            VALUES ($1, $2, $3, 'approved', $4)
+            ON CONFLICT (identifier) DO NOTHING
+            """,
+            identifier,
+            email,
+            metadata_json,
+            "admin" if should_admin else "user",
+        )
+        # Bump lastLoginAt, provider metadata, and promote to admin if env says so.
+        row = await conn.fetchrow(
+            """
+            UPDATE "User"
+            SET "lastLoginAt" = NOW(),
+                "updatedAt" = NOW(),
+                role = CASE
+                    WHEN $2::boolean AND role <> 'admin' THEN 'admin'
+                    ELSE role
+                END
+            WHERE identifier = $1
+            RETURNING id, identifier, email, metadata, status, role,
+                      "createdAt", "lastLoginAt"
+            """,
+            identifier,
+            should_admin,
+        )
+        return dict(row) if row else {}
+    finally:
+        await conn.close()
+
+
+async def list_all_users(database_url: str) -> list[dict[str, Any]]:
+    conn = await asyncpg.connect(database_url)
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT id, identifier, email, metadata, status, role,
+                   "createdAt", "updatedAt", "lastLoginAt"
+            FROM "User"
+            ORDER BY "createdAt" DESC
+            """
+        )
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["metadata"] = json.loads(item.get("metadata") or "{}")
+            except (TypeError, json.JSONDecodeError):
+                item["metadata"] = {}
+            item["id"] = str(item["id"])
+            for key in ("createdAt", "updatedAt", "lastLoginAt"):
+                if item.get(key) is not None:
+                    item[key] = item[key].isoformat()
+            out.append(item)
+        return out
+    finally:
+        await conn.close()
+
+
+async def update_user_admin_fields(
+    database_url: str,
+    user_id: str,
+    *,
+    status: str | None = None,
+    role: str | None = None,
+) -> dict[str, Any] | None:
+    if status is not None and status not in ("approved", "blocked"):
+        raise ValueError(f"invalid status: {status}")
+    if role is not None and role not in ("user", "admin"):
+        raise ValueError(f"invalid role: {role}")
+    if status is None and role is None:
+        return None
+
+    conn = await asyncpg.connect(database_url)
+    try:
+        row = await conn.fetchrow(
+            """
+            UPDATE "User"
+            SET status = COALESCE($2, status),
+                role = COALESCE($3, role),
+                "updatedAt" = NOW()
+            WHERE id = $1::uuid
+            RETURNING id, identifier, email, status, role
+            """,
+            user_id,
+            status,
+            role,
+        )
+        if row is None:
+            return None
+        out = dict(row)
+        out["id"] = str(out["id"])
+        return out
+    finally:
+        await conn.close()
+
+
+async def get_terms_status(
+    database_url: str,
+    identifier: str,
+) -> dict[str, Any] | None:
+    conn = await asyncpg.connect(database_url)
+    try:
+        row = await conn.fetchrow(
+            '''SELECT "acceptedTermsAt", "acceptedTermsVersion"
+               FROM "User" WHERE identifier = $1''',
+            identifier,
+        )
+        if row is None:
+            return None
+        at = row["acceptedTermsAt"]
+        return {
+            "accepted_at": at.isoformat() if at else None,
+            "accepted_version": row["acceptedTermsVersion"],
+        }
+    finally:
+        await conn.close()
+
+
+async def accept_terms(
+    database_url: str,
+    identifier: str,
+    version: str,
+) -> dict[str, Any] | None:
+    conn = await asyncpg.connect(database_url)
+    try:
+        row = await conn.fetchrow(
+            '''UPDATE "User"
+               SET "acceptedTermsAt" = NOW(),
+                   "acceptedTermsVersion" = $2,
+                   "updatedAt" = NOW()
+               WHERE identifier = $1
+               RETURNING "acceptedTermsAt", "acceptedTermsVersion"''',
+            identifier,
+            version,
+        )
+        if row is None:
+            return None
+        return {
+            "accepted_at": row["acceptedTermsAt"].isoformat(),
+            "accepted_version": row["acceptedTermsVersion"],
+        }
+    finally:
+        await conn.close()
+
+
+async def get_user_role_status(
+    database_url: str,
+    identifier: str,
+) -> tuple[str, str] | None:
+    """Return (role, status) for the given identifier, or None if missing."""
+    conn = await asyncpg.connect(database_url)
+    try:
+        row = await conn.fetchrow(
+            'SELECT role, status FROM "User" WHERE identifier = $1',
+            identifier,
+        )
+        if row is None:
+            return None
+        return row["role"], row["status"]
     finally:
         await conn.close()
 
