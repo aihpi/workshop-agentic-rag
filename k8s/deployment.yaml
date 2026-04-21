@@ -29,35 +29,3 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: workshop-ingestion
-  labels:
-    app: workshop-ingestion
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: workshop-ingestion
-  template:
-    metadata:
-      labels:
-        app: workshop-ingestion
-    spec:
-      containers:
-        - name: ingestion
-          image: workshop-ingestion:latest
-          ports:
-            - containerPort: 8001
-          envFrom:
-            - secretRef:
-                name: workshop-ingestion-secrets
-          resources:
-            requests:
-              memory: "1Gi"
-              cpu: "500m"
-            limits:
-              memory: "4Gi"
-              cpu: "2000m"

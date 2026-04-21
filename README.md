@@ -9,10 +9,9 @@ Build an agentic Retrieval-Augmented Generation (RAG) system using LLM tool-call
 
 ```
 workshop-agentic-rag/
-  app/            # Chainlit chat app with RAG agent
-  ingestion/      # Chainlit UI for document upload & vector ingestion
+  app/            # Chainlit chat app with RAG agent + per-user KB uploads
   k8s/            # Kubernetes deployment manifests
-  Dockerfile      # Multi-target build (app / ingestion)
+  Dockerfile      # Chat app image
   system.md       # System prompt for the RAG agent
 ```
 
@@ -20,8 +19,7 @@ workshop-agentic-rag/
 
 | Service | Description | Port |
 |---------|-------------|------|
-| **app** | Chainlit chat interface with LLM agent + Qdrant RAG tool | 8000 |
-| **ingestion** | Chainlit upload UI — parse docs via Docling, embed, store in Qdrant | 8001 |
+| **app** | Chainlit chat interface with LLM agent, per-user KB uploads, and Qdrant RAG tool | 8000 |
 | **Qdrant** | Vector database for document embeddings | 6333 |
 | **PostgreSQL** | Chat thread persistence & authentication | 5432 |
 | **LiteLLM** | LLM proxy for chat and embedding models | 4000 |
@@ -36,13 +34,8 @@ workshop-agentic-rag/
 ### 1. Configure
 
 ```bash
-# Chat app
 cp app/.env.example app/.env
 # Edit app/.env with your LiteLLM endpoint and API key
-
-# Ingestion app
-cp ingestion/.env.example ingestion/.env
-# Edit ingestion/.env with matching Qdrant + LiteLLM settings
 ```
 
 ### 2. Start services
@@ -56,15 +49,11 @@ This starts the chat app, PostgreSQL, and Qdrant.
 
 ### 3. Ingest documents
 
-Option A — **Upload via UI**: Start the ingestion app and upload PDFs through the browser.
+**Per-user uploads**: Log in to the chat UI and use the settings modal to
+create a KB and upload PDFs. Documents are persisted by `document_id` and
+citations link straight to the PDF sidebar viewer.
 
-```bash
-cd ingestion
-docker build -t workshop-ingestion .
-docker run --rm --env-file .env -p 8001:8001 workshop-ingestion
-```
-
-Option B — **Bulk ingest**: Use the CLI script in `app/` for batch ingestion.
+**Bulk ingest** (shared corpus): Use the CLI script in `app/`.
 
 ```bash
 cd app

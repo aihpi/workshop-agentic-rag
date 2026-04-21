@@ -9,15 +9,3 @@ spec:
     - port: 8000
       targetPort: 8000
   type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: workshop-ingestion
-spec:
-  selector:
-    app: workshop-ingestion
-  ports:
-    - port: 8001
-      targetPort: 8001
-  type: ClusterIP
