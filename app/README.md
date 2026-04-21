@@ -148,31 +148,9 @@ Notes:
 - Ingest auto-skips when the target collection already exists.
 - Set `INGEST_RECREATE=true` to force re-ingestion.
 
-## 3) Export PDFs with Docling (optional, but recommended)
+## 3) Ingest into Qdrant
 
-Export JSON (keeps page/provenance metadata):
-
-```bash
-source .venv/bin/activate
-python export_docling_md.py \
-  --pdf-dir ../../data/data_raw \
-  --out-dir ../../data/data_docling_json_ocr \
-  --format json \
-  --device cpu \
-  --ocr \
-  --ocr-engine tesseract \
-  --ocr-lang eng deu \
-  --pretty-json \
-  --skip-existing
-```
-
-Notes:
-- Use `--ocr-engine mac` on macOS if you want Vision OCR.
-- Keep `--format json` for citation/page metadata.
-
-## 4) Ingest into Qdrant
-
-### Option A: Ingest Docling JSON (current primary flow)
+Ingest Docling JSON exports (section/page-aware metadata, better citations):
 
 ```bash
 source .venv/bin/activate
@@ -184,16 +162,7 @@ python ingest_docling.py \
   --max-batch-chars 20000
 ```
 
-Use this for section/page-aware metadata and better citations.
-
-### Option B: Ingest preprocessed JSON (`data_preprocessed`)
-
-```bash
-source .venv/bin/activate
-python ingest.py --source all --recreate --batch-size 256
-```
-
-## 5) Start Chainlit
+## 4) Start Chainlit
 
 From `apps/chainlit`:
 
@@ -215,19 +184,18 @@ chainlit run app.py -w --port 8001
 Then open:
 - `http://localhost:8001`
 
-## 6) Typical workflow
+## 5) Typical workflow
 
 1. Start Qdrant
-2. Export Docling JSON (if source PDFs changed)
-3. Ingest (`ingest_docling.py --recreate`)
-4. Start Chainlit
+2. Ingest (`ingest_docling.py --recreate`)
+3. Start Chainlit
 
-## 7) Chat history + export (new)
+## 6) Chat history + export
 
 Two history layers are available:
 
 - Native Chainlit thread history (left sidebar): backed by Postgres (`DATABASE_URL`) + login.
-- Local SQLite export helper: used by slash commands (`/history`, `/export`) from earlier setup.
+- Local SQLite export helper: used by slash commands (`/history`, `/export`).
 
 - DB file (default): `apps/chainlit/.chainlit/chat_history.sqlite3`
 - Export folder (default): `apps/chainlit/.files/chat_exports`
@@ -244,27 +212,7 @@ Native sidebar export button:
 - A custom left-sidebar button **Export all chats** is injected via `public/custom.js`.
 - It triggers `/export all` and returns an OpenAI-format JSONL export.
 
-CLI export:
-
-```bash
-source .venv/bin/activate
-python export_chats.py --format all
-```
-
-Examples:
-
-```bash
-# Export one session as JSON
-python export_chats.py --session-id <session_id>
-
-# Export all sessions as JSONL only
-python export_chats.py --format jsonl
-
-# Export all sessions as CSV only
-python export_chats.py --format csv
-```
-
-## 8) Useful env knobs
+## 7) Useful env knobs
 
 - `TOP_K` retrieval size
 - `MAX_SOURCE_LINKS` limits how many PDF source links are shown (default `8`)
