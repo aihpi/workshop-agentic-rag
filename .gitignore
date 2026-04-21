@@ -204,3 +204,5 @@ qdrant_storage/
 qdrant_data/
 uv.lock
 *.egg-info/
+
+*CLAUDE.md
