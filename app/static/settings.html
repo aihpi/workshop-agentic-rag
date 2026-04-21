@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Einstellungen — Workshop RAG</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --panel-2: #eceef1;
+    --border: #d7dae0;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #4b5563;
+    --accent-text: #ffffff;
+    --danger: #b91c1c;
+    --ok: #15803d;
+  }
+  body.theme-dark {
+    --bg: #1b1d22;
+    --panel: #24272e;
+    --panel-2: #2d3139;
+    --border: #3a3f48;
+    --text: #e5e7eb;
+    --muted: #9aa0aa;
+    --accent: #d1d5db;
+    --accent-text: #111418;
+    --danger: #f87171;
+    --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header a { color: var(--accent); text-decoration: none; font-size: 14px; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+    display: grid;
+    gap: 28px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  section h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+  section .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], textarea {
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font: inherit;
+  }
+  textarea { resize: vertical; min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  button {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: 0;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .kb-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .kb-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .kb-meta { font-size: 12px; color: var(--muted); }
+  .kb-name { font-weight: 600; }
+  .kb-desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .kb-body { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .kb-card.open .kb-body { display: block; }
+  .doc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .doc-row:last-child { border-bottom: 0; }
+  .drop {
+    margin-top: 10px;
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .drop.dragover { border-color: var(--accent); color: var(--text); }
+  .status { font-size: 13px; margin-top: 8px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--muted);
+    margin-left: 6px;
+    border: 1px solid var(--border);
+  }
+  .pill.readonly { color: var(--accent); border-color: var(--accent); }
+  .starter-row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Einstellungen</h1>
+</header>
+<main>
+
+  <section id="kbs-section">
+    <h2>Wissensdatenbanken</h2>
+    <div class="sub">Erstellen Sie benannte Wissensdatenbanken, laden Sie Dokumente hoch, und entscheiden Sie im Chat welche durchsucht werden sollen.</div>
+
+    <div class="row" style="margin-bottom:14px">
+      <input type="text" id="new-kb-name" placeholder="Name (z.B. 'Unternehmenswiki')" />
+      <input type="text" id="new-kb-desc" placeholder="Kurze Beschreibung — hilft dem LLM die richtige DB zu wählen" />
+      <button id="new-kb-btn">Anlegen</button>
+    </div>
+    <div id="kbs-list"></div>
+    <div id="kbs-status" class="status"></div>
+  </section>
+
+  <section id="prompt-section">
+    <h2>System-Prompt</h2>
+    <div class="sub">Persönlicher System-Prompt. Leer lassen, um den Standard aus <code>system.md</code> zu verwenden.</div>
+    <textarea id="system-prompt" placeholder=""></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="save-prompt-btn">Speichern</button>
+      <button id="reset-prompt-btn" class="secondary">Auf Standard zurücksetzen</button>
+      <select id="gen-prompt-kb" class="secondary" title="Wissensdatenbank für Generierung"></select>
+      <button id="gen-prompt-btn" class="secondary">Aus Dokumenten generieren</button>
+      <span id="prompt-status" class="status"></span>
+    </div>
+  </section>
+
+  <section id="starters-section">
+    <h2>Startfragen</h2>
+    <div class="sub">Eine Frage pro Zeile. Optional: <code>Button-Text :: Voller Text</code>. Leer lassen, um die Standardfragen zu verwenden.</div>
+    <textarea id="starters" placeholder="Was ist der Unterschied zwischen Prozess- und Systembausteinen?
+Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Standard 200-2?"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="save-starters-btn">Speichern</button>
+      <select id="gen-starters-kb" class="secondary" title="Wissensdatenbank für Generierung"></select>
+      <button id="gen-starters-btn" class="secondary">Aus Dokumenten generieren</button>
+      <span id="starters-status" class="status"></span>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const theme = params.get("theme") === "dark" ? "theme-dark" : "theme-light";
+  document.body.classList.add(theme);
+})();
+</script>
+<script>
+(() => {
+  const notifyParentDirty = () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "settings-saved" }, "*");
+    }
+  };
+
+  const api = async (path, opts = {}) => {
+    const method = (opts.method || "GET").toUpperCase();
+    const res = await fetch(path, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      ...opts,
+    });
+    if (!res.ok) {
+      let detail;
+      try { detail = (await res.json()).detail; } catch (_) { detail = await res.text(); }
+      throw new Error(detail || `${res.status} ${res.statusText}`);
+    }
+    if (method !== "GET") notifyParentDirty();
+    if (res.status === 204) return null;
+    const type = res.headers.get("content-type") || "";
+    return type.includes("application/json") ? res.json() : res.text();
+  };
+
+  const setStatus = (el, text, kind = "") => {
+    el.className = `status ${kind}`;
+    el.textContent = text;
+  };
+
+  // ---------------- Knowledge bases ----------------
+
+  const listEl = document.getElementById("kbs-list");
+  const statusEl = document.getElementById("kbs-status");
+
+  const renderKb = (kb) => {
+    const card = document.createElement("div");
+    card.className = "kb-card";
+    card.dataset.kbId = kb.id;
+    const readonly = kb.readonly === true;
+    const meta = [
+      kb.document_count != null ? `${kb.document_count} Dokument(e)` : null,
+      kb.created_at ? new Date(kb.created_at).toLocaleDateString() : null,
+    ].filter(Boolean).join(" · ");
+
+    card.innerHTML = `
+      <div class="kb-head">
+        <div>
+          <span class="kb-name">${escapeHtml(kb.name)}</span>
+          ${readonly ? '<span class="pill readonly">gemeinsam</span>' : ""}
+          <div class="kb-meta">${escapeHtml(meta)}</div>
+          ${kb.description ? `<div class="kb-desc">${escapeHtml(kb.description)}</div>` : ""}
+        </div>
+        <div class="row">
+          ${readonly ? "" : '<button class="secondary expand-btn">Dokumente</button>'}
+          ${readonly ? "" : '<button class="danger delete-btn">Löschen</button>'}
+        </div>
+      </div>
+      <div class="kb-body">
+        <div class="doc-list"></div>
+        <div class="drop">
+          Datei hier ablegen oder
+          <input type="file" accept=".pdf,.txt,.md" class="file-input" />
+        </div>
+        <div class="status upload-status"></div>
+      </div>
+    `;
+
+    if (!readonly) {
+      card.querySelector(".expand-btn").addEventListener("click", async () => {
+        card.classList.toggle("open");
+        if (card.classList.contains("open")) await reloadDocs(card, kb);
+      });
+      card.querySelector(".delete-btn").addEventListener("click", async () => {
+        if (!confirm(`Wissensdatenbank "${kb.name}" und alle darin enthaltenen Dokumente wirklich löschen?`)) return;
+        try {
+          await api(`/api/kbs/${kb.id}`, { method: "DELETE" });
+          setStatus(statusEl, `"${kb.name}" gelöscht`, "ok");
+          await reloadKbs();
+        } catch (err) {
+          setStatus(statusEl, err.message, "err");
+        }
+      });
+
+      const drop = card.querySelector(".drop");
+      const input = card.querySelector(".file-input");
+      drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("dragover"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
+      drop.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        drop.classList.remove("dragover");
+        await uploadFiles(card, kb, Array.from(e.dataTransfer.files));
+      });
+      input.addEventListener("change", async () => {
+        await uploadFiles(card, kb, Array.from(input.files));
+        input.value = "";
+      });
+    }
+    return card;
+  };
+
+  const uploadFiles = async (card, kb, files) => {
+    const status = card.querySelector(".upload-status");
+    for (const file of files) {
+      setStatus(status, `Lade "${file.name}" hoch…`, "");
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const doc = await fetch(`/api/kbs/${kb.id}/documents`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        }).then(async (r) => {
+          if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            throw new Error(d.detail || `${r.status}`);
+          }
+          return r.json();
+        });
+        setStatus(status, `"${file.name}" gespeichert (${doc.chunk_count} Chunks)`, "ok");
+        notifyParentDirty();
+        await reloadDocs(card, kb);
+        await reloadKbs({ preserveOpen: kb.id });
+      } catch (err) {
+        setStatus(status, `Fehler bei "${file.name}": ${err.message}`, "err");
+      }
+    }
+  };
+
+  const reloadDocs = async (card, kb) => {
+    const list = card.querySelector(".doc-list");
+    list.innerHTML = "Lade…";
+    try {
+      const { documents } = await api(`/api/kbs/${kb.id}/documents`);
+      if (!documents.length) {
+        list.innerHTML = '<div class="kb-meta">Noch keine Dokumente hochgeladen.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      for (const doc of documents) {
+        const row = document.createElement("div");
+        row.className = "doc-row";
+        row.innerHTML = `
+          <div>
+            <div>${escapeHtml(doc.file_name)}</div>
+            <div class="kb-meta">${doc.chunk_count} Chunks · ${(doc.size_bytes / 1024 / 1024).toFixed(2)} MB · ${new Date(doc.uploaded_at).toLocaleString()}</div>
+          </div>
+          <button class="danger">Löschen</button>
+        `;
+        row.querySelector("button").addEventListener("click", async () => {
+          if (!confirm(`Dokument "${doc.file_name}" löschen?`)) return;
+          try {
+            await api(`/api/kbs/${kb.id}/documents/${doc.id}`, { method: "DELETE" });
+            await reloadDocs(card, kb);
+            await reloadKbs({ preserveOpen: kb.id });
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+        list.appendChild(row);
+      }
+    } catch (err) {
+      list.innerHTML = `<div class="status err">${escapeHtml(err.message)}</div>`;
+    }
+  };
+
+  const reloadKbs = async ({ preserveOpen } = {}) => {
+    try {
+      const { knowledge_bases } = await api("/api/kbs");
+      const all = knowledge_bases || [];
+      listEl.innerHTML = "";
+      all.forEach((kb) => {
+        const card = renderKb(kb);
+        if (preserveOpen && kb.id === preserveOpen) {
+          card.classList.add("open");
+          reloadDocs(card, kb);
+        }
+        listEl.appendChild(card);
+      });
+      populateGenPickers(all);
+    } catch (err) {
+      setStatus(statusEl, err.message, "err");
+    }
+  };
+
+  const populateGenPickers = (kbs) => {
+    const options = (kbs || []).map((kb) =>
+      `<option value="${escapeHtml(kb.id)}">${escapeHtml(kb.name)}${kb.readonly ? " (gemeinsam)" : ""}</option>`
+    ).join("");
+    ["gen-prompt-kb", "gen-starters-kb"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const prev = el.value;
+      el.innerHTML = options;
+      if (prev && [...el.options].some((o) => o.value === prev)) el.value = prev;
+    });
+  };
+
+  document.getElementById("new-kb-btn").addEventListener("click", async () => {
+    const name = document.getElementById("new-kb-name").value.trim();
+    const description = document.getElementById("new-kb-desc").value.trim();
+    if (!name) { setStatus(statusEl, "Name erforderlich", "err"); return; }
+    try {
+      await api("/api/kbs", { method: "POST", body: JSON.stringify({ name, description }) });
+      document.getElementById("new-kb-name").value = "";
+      document.getElementById("new-kb-desc").value = "";
+      setStatus(statusEl, `"${name}" angelegt`, "ok");
+      await reloadKbs();
+    } catch (err) {
+      setStatus(statusEl, err.message, "err");
+    }
+  });
+
+  // ---------------- System prompt ----------------
+
+  const promptEl = document.getElementById("system-prompt");
+  const promptStatus = document.getElementById("prompt-status");
+
+  const loadPrompt = async () => {
+    try {
+      const data = await api("/api/settings/system-prompt");
+      promptEl.value = data.system_prompt || "";
+      promptEl.placeholder = data.default_system_prompt || "Standard-Prompt nicht geladen";
+      setStatus(promptStatus, data.using_default ? "Standard aktiv" : "Persönlicher Prompt aktiv", "ok");
+    } catch (err) {
+      setStatus(promptStatus, err.message, "err");
+    }
+  };
+
+  document.getElementById("save-prompt-btn").addEventListener("click", async () => {
+    try {
+      await api("/api/settings/system-prompt", {
+        method: "PUT",
+        body: JSON.stringify({ system_prompt: promptEl.value }),
+      });
+      await loadPrompt();
+      setStatus(promptStatus, "Gespeichert", "ok");
+    } catch (err) {
+      setStatus(promptStatus, err.message, "err");
+    }
+  });
+
+  document.getElementById("reset-prompt-btn").addEventListener("click", async () => {
+    try {
+      await api("/api/settings/system-prompt", {
+        method: "PUT",
+        body: JSON.stringify({ system_prompt: "" }),
+      });
+      promptEl.value = "";
+      await loadPrompt();
+    } catch (err) {
+      setStatus(promptStatus, err.message, "err");
+    }
+  });
+
+  document.getElementById("gen-prompt-btn").addEventListener("click", async () => {
+    const kbId = document.getElementById("gen-prompt-kb").value;
+    if (!kbId) { setStatus(promptStatus, "Keine Wissensdatenbank ausgewählt", "err"); return; }
+    const btn = document.getElementById("gen-prompt-btn");
+    btn.disabled = true;
+    setStatus(promptStatus, "Generiere… (kann 10–30 s dauern)", "");
+    try {
+      const data = await api(`/api/kbs/${kbId}/generate/system-prompt`, { method: "POST" });
+      promptEl.value = data.system_prompt || "";
+      setStatus(promptStatus, "Vorschlag eingefügt — prüfen und speichern", "ok");
+    } catch (err) {
+      setStatus(promptStatus, err.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------- Starter questions ----------------
+
+  const startersEl = document.getElementById("starters");
+  const startersStatus = document.getElementById("starters-status");
+
+  const formatStarters = (items) =>
+    (items || [])
+      .map((s) => (s.label && s.label !== s.message ? `${s.label} :: ${s.message}` : s.message))
+      .join("\n");
+
+  const parseStartersInput = (text) =>
+    (text || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const idx = line.indexOf("::");
+        if (idx === -1) return { label: "", message: line };
+        return { label: line.slice(0, idx).trim(), message: line.slice(idx + 2).trim() };
+      })
+      .filter((s) => s.message);
+
+  const loadStarters = async () => {
+    try {
+      const { starters } = await api("/api/settings/starters");
+      startersEl.value = formatStarters(starters);
+      setStatus(startersStatus, starters.length ? `${starters.length} Startfrage(n)` : "Standardfragen aktiv", "ok");
+    } catch (err) {
+      setStatus(startersStatus, err.message, "err");
+    }
+  };
+
+  document.getElementById("save-starters-btn").addEventListener("click", async () => {
+    try {
+      const payload = { starters: parseStartersInput(startersEl.value) };
+      await api("/api/settings/starters", { method: "PUT", body: JSON.stringify(payload) });
+      await loadStarters();
+    } catch (err) {
+      setStatus(startersStatus, err.message, "err");
+    }
+  });
+
+  document.getElementById("gen-starters-btn").addEventListener("click", async () => {
+    const kbId = document.getElementById("gen-starters-kb").value;
+    if (!kbId) { setStatus(startersStatus, "Keine Wissensdatenbank ausgewählt", "err"); return; }
+    const btn = document.getElementById("gen-starters-btn");
+    btn.disabled = true;
+    setStatus(startersStatus, "Generiere… (kann 10–30 s dauern)", "");
+    try {
+      const data = await api(`/api/kbs/${kbId}/generate/starters`, { method: "POST" });
+      startersEl.value = formatStarters(data.starters || []);
+      setStatus(startersStatus, "Vorschlag eingefügt — prüfen und speichern", "ok");
+    } catch (err) {
+      setStatus(startersStatus, err.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------- Utilities ----------------
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+  }
+
+  // Initial load
+  reloadKbs();
+  loadPrompt();
+  loadStarters();
+})();
+</script>
+</body>
+</html>

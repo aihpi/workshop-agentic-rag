@@ -30,6 +30,12 @@ EMBED_MODEL = _getenv("EMBED_MODEL", "text-embedding-3-large")
 QDRANT_URL = _getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = _getenv("QDRANT_API_KEY")
 QDRANT_COLLECTION = _getenv("QDRANT_COLLECTION", "grundschutz")
+
+MAX_FILE_SIZE_MB = int(_getenv("MAX_FILE_SIZE_MB", "50"))
+CHUNK_MAX_CHARS = int(_getenv("CHUNK_MAX_CHARS", "3000"))
+CHUNK_OVERLAP = int(_getenv("CHUNK_OVERLAP", "300"))
+EMBED_BATCH_SIZE = int(_getenv("EMBED_BATCH_SIZE", "64"))
+EMBED_MAX_BATCH_CHARS = int(_getenv("EMBED_MAX_BATCH_CHARS", "20000"))
 TOP_K = int(_getenv("TOP_K", "5"))
 MAX_TOP_K = int(_getenv("MAX_TOP_K", str(TOP_K)))
 MAX_SOURCE_LINKS = int(_getenv("MAX_SOURCE_LINKS", "8"))
@@ -55,6 +61,14 @@ DATA_RAW_DIR = Path(
         str((BASE_DIR / ".." / "data" / "data_raw").resolve()),
     )
 )
+
+DATA_KB_DOCS_DIR = Path(
+    _getenv(
+        "DATA_KB_DOCS_DIR",
+        str((BASE_DIR / ".." / "data" / "kb_docs").resolve()),
+    )
+)
+DATA_KB_DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
 GRUNDSCHUTZ_SOURCE_PDF = (
     _getenv("GRUNDSCHUTZ_SOURCE_PDF", "IT_Grundschutz_Kompendium_Edition2023.pdf")
@@ -95,6 +109,15 @@ DATABASE_URL = _getenv("DATABASE_URL")
 CHAINLIT_AUTH_USERNAME = _getenv("CHAINLIT_AUTH_USERNAME", "admin")
 CHAINLIT_AUTH_PASSWORD = _getenv("CHAINLIT_AUTH_PASSWORD", "admin")
 CHAINLIT_INIT_DB = (_getenv("CHAINLIT_INIT_DB", "true") or "true").lower() == "true"
+
+# Comma-separated list of GitHub logins / usernames auto-promoted to role=admin
+# on each login. Empty ⇒ admin role can only be granted manually via the admin UI.
+ADMIN_IDENTIFIERS = _getenv_list("ADMIN_IDENTIFIERS", default=[], sep=",")
+
+# Version string for the usage agreement. Bump to force every user to re-accept
+# (e.g. after a wording change). Users whose stored version differs from this
+# are re-prompted on next login.
+TERMS_VERSION = _getenv("TERMS_VERSION", "hpi-aisc-bb-2026-01") or "hpi-aisc-bb-2026-01"
 
 # ---------------------------------------------------------------------------
 # Personalization Settings

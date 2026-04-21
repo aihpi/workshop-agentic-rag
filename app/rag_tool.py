@@ -174,6 +174,7 @@ async def retrieve(
     query: str,
     top_k: int | None = None,
     *,
+    collection: str | None = None,
     source_scope: str | None = None,
     standard_id: str | None = None,
     include_vectors: bool = False,
@@ -183,6 +184,7 @@ async def retrieve(
     Args:
         query: Search query text
         top_k: Number of results to return
+        collection: Qdrant collection to search. Defaults to QDRANT_COLLECTION.
         source_scope: Optional filter by source scope
         standard_id: Optional filter by standard ID
         include_vectors: If True, include embedding vectors in results (for personalization)
@@ -193,28 +195,39 @@ async def retrieve(
     client = _get_client()
     vector = (await embed([query]))[0]
     k = top_k or TOP_K
+    target_collection = collection or QDRANT_COLLECTION
     must: list[FieldCondition] = []
     if source_scope:
         must.append(FieldCondition(key="source_scope", match=MatchValue(value=source_scope)))
     if standard_id:
         must.append(FieldCondition(key="standard_id", match=MatchValue(value=standard_id)))
     query_filter = Filter(must=must) if must else None
-    print("[DEBUG] retrieve", {"top_k": k, "source_scope": source_scope, "standard_id": standard_id})
-    response = client.query_points(
-        collection_name=QDRANT_COLLECTION,
-        query=vector,
-        limit=k,
-        score_threshold=SCORE_THRESHOLD,
-        with_payload=True,
-        with_vectors=include_vectors,
-        query_filter=query_filter,
-    )
+    print("[DEBUG] retrieve", {
+        "collection": target_collection,
+        "top_k": k,
+        "source_scope": source_scope,
+        "standard_id": standard_id,
+    })
+    try:
+        response = client.query_points(
+            collection_name=target_collection,
+            query=vector,
+            limit=k,
+            score_threshold=SCORE_THRESHOLD,
+            with_payload=True,
+            with_vectors=include_vectors,
+            query_filter=query_filter,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Collection may not exist yet (KB created but no documents uploaded).
+        print(f"[WARN] retrieve_collection_missing collection={target_collection} err={exc}")
+        return []
     points = list(response.points or [])
     if not points and (source_scope or standard_id):
         # Compatibility fallback for older collections without new metadata fields.
         print("[WARN] filtered_retrieval_empty_fallback_unfiltered", {"top_k": k})
         response = client.query_points(
-            collection_name=QDRANT_COLLECTION,
+            collection_name=target_collection,
             query=vector,
             limit=k,
             score_threshold=SCORE_THRESHOLD,
@@ -249,6 +262,7 @@ async def personalized_retrieve(
     balance: float = 0.5,
     top_k: int | None = None,
     *,
+    collection: str | None = None,
     source_scope: str | None = None,
     standard_id: str | None = None,
 ) -> list[RagResult]:
@@ -279,14 +293,14 @@ async def personalized_retrieve(
     # If personalization disabled or no profile, fall back to standard retrieval
     if not PERSONALIZATION_ENABLED or user_profile is None or balance >= 1.0:
         return await retrieve(
-            query, top_k, source_scope=source_scope, standard_id=standard_id
+            query, top_k, collection=collection, source_scope=source_scope, standard_id=standard_id
         )
 
     # If no topic embeddings, can't personalize
     if not user_profile.topic_embeddings:
         print("[DEBUG] personalized_retrieve: no topic embeddings, using standard")
         return await retrieve(
-            query, top_k, source_scope=source_scope, standard_id=standard_id
+            query, top_k, collection=collection, source_scope=source_scope, standard_id=standard_id
         )
 
     k = top_k or TOP_K
@@ -298,6 +312,7 @@ async def personalized_retrieve(
     results = await retrieve(
         query,
         extended_k,
+        collection=collection,
         source_scope=source_scope,
         standard_id=standard_id,
         include_vectors=True,

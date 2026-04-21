@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Chainlit UI for GSKI with LiteLLM + Qdrant RAG"
 requires-python = ">=3.12"
 dependencies = [
-    "chainlit>=1.3.0",
+    "chainlit==2.11.0",
     "asyncpg>=0.29.0",
     "litellm>=1.75.8",
     "qdrant-client>=1.14.1",

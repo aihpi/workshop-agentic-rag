@@ -378,11 +378,13 @@ SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
 async def on_start():
     await cl.Message(
         content=(
-            "**Document Ingestion**\n\n"
-            f"Upload PDF, TXT, or Markdown files (max {MAX_FILE_SIZE_MB} MB each) "
-            f"and I will parse, chunk, embed, and store them in the "
-            f"`{QDRANT_COLLECTION}` Qdrant collection.\n\n"
-            "Attach files to get started."
+            "**Admin / Bulk-Ingestion**\n\n"
+            f"Diese UI schreibt in die *gemeinsame* Qdrant-Sammlung `{QDRANT_COLLECTION}`. "
+            "Für persönliche, nur dem eigenen Account zugängliche Wissensdatenbanken "
+            "verwenden Sie bitte die Einstellungen im Chat-Bereich (`/settings/app`), "
+            "die Dateien per REST-API in benannte, pro Nutzer getrennte Sammlungen laden.\n\n"
+            f"Unterstützt PDF, TXT, Markdown (max {MAX_FILE_SIZE_MB} MB pro Datei). "
+            "Dateien anhängen, um loszulegen."
         ),
     ).send()
 

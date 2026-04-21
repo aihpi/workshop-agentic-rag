@@ -17,7 +17,7 @@ from chainlit.auth import get_current_user
 from chainlit.input_widget import Select
 from chainlit.types import Starter
 from fastapi import Depends, HTTPException
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from chat_history import (
@@ -43,26 +43,43 @@ from native_chat import (
     ensure_native_schema,
     export_all_chats_zip,
     get_user_by_identifier,
+    get_user_role_status,
+    list_all_users,
+    update_user_admin_fields,
+    upsert_user_on_login,
 )
 from rag_tool import build_context, extract_page, extract_source_file, format_citations, retrieve, personalized_retrieve
 from settings import (
+    ADMIN_IDENTIFIERS,
     CHAT_DB_PATH,
     CHAT_EXPORT_DIR,
     CHAINLIT_AUTH_PASSWORD,
     CHAINLIT_AUTH_USERNAME,
     CHAINLIT_INIT_DB,
+    DATA_KB_DOCS_DIR,
     DATA_RAW_DIR,
     DATABASE_URL,
     EMBED_MODEL,
     LANGFLOW_ENABLED,
+    MAX_FILE_SIZE_MB,
     MAX_TOP_K,
     MAX_SOURCE_LINKS,
     PERSONALIZATION_ENABLED,
     PERSONALIZED_FOLLOWUPS_COUNT,
     PROFILE_MIN_MESSAGES,
+    QDRANT_COLLECTION,
     STARTER_QUESTIONS,
     SYSTEM_PROMPT_PATH,
     TOP_K,
+)
+from user_kb import (
+    SHARED_KB_ID,
+    get_document,
+    get_kb,
+    get_user_system_prompt,
+    init_user_kb_db,
+    list_kbs,
+    list_user_starters,
 )
 from user_profile import (
     determine_balance,
@@ -80,6 +97,80 @@ def _load_system_prompt(path: Path) -> str | None:
 
 
 SYSTEM_PROMPT = _load_system_prompt(SYSTEM_PROMPT_PATH)
+
+
+SHARED_KB_ENTRY: dict[str, Any] = {
+    "id": SHARED_KB_ID,
+    "name": "IT-Grundschutz (gemeinsam)",
+    "description": (
+        "Gemeinsame, schreibgeschützte Wissensbasis mit dem IT-Grundschutz-Kompendium "
+        "und den BSI-Standards (200-1/2/3/4)."
+    ),
+    "qdrant_collection": QDRANT_COLLECTION,
+    "readonly": True,
+    "document_count": None,
+}
+
+
+def _build_user_kb_catalog(user_id: str | None) -> dict[str, dict[str, Any]]:
+    """Return {kb_id: kb_entry} map the user can retrieve against.
+
+    Always includes the shared IT-Grundschutz KB. Private per-user KBs are
+    loaded from SQLite when a user_id is available.
+    """
+    catalog: dict[str, dict[str, Any]] = {SHARED_KB_ID: dict(SHARED_KB_ENTRY)}
+    if not user_id:
+        return catalog
+    for kb in list_kbs(CHAT_DB_PATH, user_id):
+        catalog[kb["id"]] = kb
+    return catalog
+
+
+def _resolve_kb_selection(
+    requested_kb_id: str,
+    catalog: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Pick the best KB match for an LLM tool-call arg.
+
+    Falls back to the shared KB if the id is empty or unknown, so retrieval
+    always has a target collection.
+    """
+    if requested_kb_id and requested_kb_id in catalog:
+        return catalog[requested_kb_id]
+    # Case-insensitive name match as a resilience net — models sometimes
+    # pass the display name instead of the id.
+    if requested_kb_id:
+        lowered = requested_kb_id.strip().lower()
+        for entry in catalog.values():
+            if str(entry.get("name", "")).strip().lower() == lowered:
+                return entry
+    return catalog.get(SHARED_KB_ID, SHARED_KB_ENTRY)
+
+
+def _format_kb_catalog_for_prompt(catalog: dict[str, dict[str, Any]]) -> str:
+    if not catalog:
+        return ""
+    lines: list[str] = ["## VERFÜGBARE WISSENSDATENBANKEN"]
+    lines.append(
+        "Ruf `rag_retrieve` mit dem Argument `knowledge_base` gesetzt auf die passende Id aus dieser Liste auf:"
+    )
+    for entry in catalog.values():
+        kb_id = entry.get("id", "")
+        name = entry.get("name", kb_id)
+        description = (entry.get("description") or "").strip()
+        tags: list[str] = []
+        if entry.get("readonly"):
+            tags.append("gemeinsam, schreibgeschützt")
+        doc_count = entry.get("document_count")
+        if isinstance(doc_count, int):
+            tags.append(f"{doc_count} Dokumente")
+        suffix = f" ({'; '.join(tags)})" if tags else ""
+        line = f"- id={kb_id}: {name}{suffix}"
+        if description:
+            line += f" — {description}"
+        lines.append(line)
+    return "\n".join(lines)
+
 CITATION_PANEL_CACHE: dict[str, str] = {}
 CITATION_SIDEBAR_TITLE = "Quellen & Belegstellen"
 CITATION_HISTORY_SIDEBAR_TITLE = "Quellen & Belegstellen (Verlauf)"
@@ -118,7 +209,11 @@ def _resolve_source_pdf_path(file_name: str, allowed_names: set[str] | None = No
     return file_path
 
 
-def _source_pdf_url(file_name: str) -> str:
+def _source_pdf_url(file_name: str, document_id: str | None = None) -> str:
+    """Citation URL. Prefers the per-document id (kb_documents.id) when available,
+    falls back to bare filename so legacy shared-KB chunks keep working."""
+    if isinstance(document_id, str) and document_id.strip():
+        return f"/sources/pdf/{quote(document_id.strip(), safe='')}"
     return f"/sources/pdf/{quote(file_name, safe='')}"
 
 
@@ -179,22 +274,34 @@ def _ensure_route_precedes_catch_all(fastapi_app: Any, route_path: str) -> None:
     if not isinstance(routes, list):
         return
 
-    route_idx = next((i for i, route in enumerate(routes) if getattr(route, "path", None) == route_path), None)
-    catch_all_idx = next(
-        (
-            i
-            for i, route in enumerate(routes)
-            if isinstance(getattr(route, "path", None), str)
-            and str(getattr(route, "path")).endswith("/{full_path:path}")
-        ),
-        None,
-    )
+    # Move every route with this path above the catch-all, preserving order.
+    # (Multi-method paths like GET+POST /api/kbs register as separate APIRoutes.)
+    while True:
+        catch_all_idx = next(
+            (
+                i
+                for i, route in enumerate(routes)
+                if isinstance(getattr(route, "path", None), str)
+                and str(getattr(route, "path")).endswith("/{full_path:path}")
+            ),
+            None,
+        )
+        if catch_all_idx is None:
+            return
 
-    if route_idx is None or catch_all_idx is None or route_idx < catch_all_idx:
-        return
+        route_idx = next(
+            (
+                i
+                for i, route in enumerate(routes)
+                if i > catch_all_idx and getattr(route, "path", None) == route_path
+            ),
+            None,
+        )
+        if route_idx is None:
+            return
 
-    route = routes.pop(route_idx)
-    routes.insert(catch_all_idx, route)
+        route = routes.pop(route_idx)
+        routes.insert(catch_all_idx, route)
 
 # Chat profiles configuration
 CHAT_PROFILES_PATH = Path(__file__).parent / "chat_profiles.json"
@@ -226,14 +333,26 @@ TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "rag_retrieve",
-            "description": "Suche relevante Dokumente in der Wissensbasis.",
+            "description": (
+                "Suche relevante Dokumente in einer Wissensdatenbank. "
+                "Die verfügbaren Wissensdatenbanken und ihre Ids sind im Systemprompt "
+                "unter 'VERFÜGBARE WISSENSDATENBANKEN' aufgelistet. Wähle die passende "
+                "Wissensdatenbank basierend auf der Nutzerfrage."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Die Nutzerfrage oder Suchanfrage."},
+                    "knowledge_base": {
+                        "type": "string",
+                        "description": (
+                            "Id der zu durchsuchenden Wissensdatenbank (siehe Systemprompt). "
+                            "Verwende 'shared' für den gemeinsamen IT-Grundschutz-Korpus."
+                        ),
+                    },
                     "top_k": {"type": "integer", "description": "Anzahl der Treffer.", "default": 5},
                 },
-                "required": ["query"],
+                "required": ["query", "knowledge_base"],
             },
         },
     }
@@ -773,9 +892,9 @@ def _inject_clickable_refs(
         alias = alias_by_index.get(idx) or (alias_by_number or {}).get(idx)
         if not alias:
             return match.group(0)
-        url = (url_by_index or {}).get(idx) or (url_by_number or {}).get(idx)
-        if isinstance(url, str) and url:
-            return _markdown_link(alias, url)
+        # Bare alias text — Chainlit's frontend matches this against an inline
+        # cl.Pdf element name and renders a side-panel opener. Wrapping as a
+        # markdown link would suppress that and revert to a new-tab navigation.
         return alias
 
     # Covers citations like: 【1†L1-L4】 and [1†L1-L4]
@@ -968,41 +1087,9 @@ def _inject_source_alias_links(
     alias_by_number: dict[int, str],
     url_by_number: dict[int, str],
 ) -> str:
-    if not text or not alias_by_number or not url_by_number:
-        return text
-
-    def repl_long(match: re.Match) -> str:
-        idx = int(match.group(1))
-        alias = alias_by_number.get(idx)
-        url = url_by_number.get(idx)
-        if not alias or not url:
-            return match.group(0)
-        return _markdown_link(alias, url)
-
-    # Link full alias mentions like:
-    # "Quelle 3: 3. Anforderungen (S.312-313)"
-    text = re.sub(
-        r"(?<!\[)\bQuelle\s*(\d+)\s*:\s*[^\n]*?\((?:S\.?|Seite)\s*[^)\n]+\)",
-        repl_long,
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    def repl_short(match: re.Match) -> str:
-        idx = int(match.group(1))
-        alias = alias_by_number.get(idx)
-        url = url_by_number.get(idx)
-        if not alias or not url:
-            return match.group(0)
-        return _markdown_link(alias, url)
-
-    # Link short mentions like: "Quelle 2"
-    text = re.sub(
-        r"(?<!\[)\bQuelle\s*(\d+)\b(?!\s*:)",
-        repl_short,
-        text,
-        flags=re.IGNORECASE,
-    )
+    # No-op: in-text "Quelle N: ..." mentions stay as bare alias text so Chainlit's
+    # frontend can match them against inline cl.Pdf element names and render side-panel
+    # openers. Markdown-link wrapping would revert behavior to new-tab navigation.
     return text
 
 
@@ -1012,13 +1099,14 @@ def _inject_naked_source_links(text: str) -> str:
 
     def repl(match: re.Match) -> str:
         label = match.group("label")
-        url = match.group("url")
-        if not isinstance(label, str) or not isinstance(url, str):
+        if not isinstance(label, str):
             return match.group(0)
-        return _markdown_link(label, url)
+        # Strip the trailing "(/sources/pdf/...)" and keep the alias as bare text so
+        # Chainlit's frontend matches it against an inline cl.Pdf element name.
+        return label
 
     return re.sub(
-        r"(?P<label>Quelle\s*\d+\s*:[^\n]{1,260}?\((?:S\.?|Seite)\s*[^)\n]+\))\((?P<url>(?:https?://[^\s)]+|/sources/pdf/[^)\s]+))\)",
+        r"(?P<label>Quelle\s*\d+\s*:[^\n]{1,260}?\((?:S\.?|Seite)\s*[^)\n]+\))\((?:https?://[^\s)]+|/sources/pdf/[^)\s]+)\)",
         repl,
         text,
         flags=re.IGNORECASE,
@@ -1140,27 +1228,10 @@ def _align_aliases_to_source_ids(
 
 
 def _inject_alias_links_by_rows(text: str, source_rows: list[dict[str, Any]]) -> str:
-    if not text:
-        return text
-    rows = _sanitize_source_rows_payload(source_rows)
-    if not rows:
-        return text
-
-    # Replace longer aliases first to avoid partial replacements.
-    ordered = sorted(rows, key=lambda row: len(str(row.get("alias") or "")), reverse=True)
-    linked = text
-    for row in ordered:
-        alias = row.get("alias")
-        file_name = row.get("file")
-        if not isinstance(alias, str) or not alias.strip() or not isinstance(file_name, str) or not file_name.strip():
-            continue
-        page = row.get("page_start") if isinstance(row.get("page_start"), int) else row.get("page")
-        pdf_url = _source_pdf_url(file_name)
-        if isinstance(page, int):
-            pdf_url = f"{pdf_url}#page={page}"
-        pattern = rf"(?<!\[){re.escape(alias)}(?!\]\()"
-        linked = re.sub(pattern, _markdown_link(alias, pdf_url), linked)
-    return linked
+    # No-op: aliases stay as bare text so Chainlit's frontend can match them against
+    # inline cl.Pdf element names and open the side-panel viewer. The previous final
+    # markdown-wrap pass is what produced new-tab links.
+    return text
 
 
 def _desired_source_count(text: str, available: int) -> int:
@@ -1473,19 +1544,37 @@ async def oauth_callback(
 ) -> cl.User | None:
     """Handle OAuth login (e.g., GitHub).
 
-    Returns a provider-specific user for GitHub, or the default user for other
-    OAuth providers.
+    Upserts the user in Postgres, rejects blocked users, and attaches
+    role/status into the Chainlit session metadata.
     """
     if provider_id == "github":
+        identifier = raw_user_data.get("login")
+        if not identifier:
+            return None
+        extra = {
+            "name": raw_user_data.get("name"),
+            "email": raw_user_data.get("email"),
+            "avatar_url": raw_user_data.get("avatar_url"),
+            "github_id": str(raw_user_data.get("id")),
+        }
+        role, status = "user", "approved"
+        if DATABASE_URL:
+            row = await upsert_user_on_login(
+                DATABASE_URL,
+                identifier=identifier,
+                provider="github",
+                email=raw_user_data.get("email"),
+                extra_metadata=extra,
+                admin_identifiers=ADMIN_IDENTIFIERS,
+            )
+            role = row.get("role", "user")
+            status = row.get("status", "approved")
+        if status == "blocked":
+            print(f"[AUTH] rejecting blocked user: {identifier}")
+            return None
         return cl.User(
-            identifier=raw_user_data.get("login"),  # GitHub username
-            metadata={
-                "provider": "github",
-                "name": raw_user_data.get("name"),
-                "email": raw_user_data.get("email"),
-                "avatar_url": raw_user_data.get("avatar_url"),
-                "github_id": str(raw_user_data.get("id")),
-            },
+            identifier=identifier,
+            metadata={"provider": "github", "role": role, "status": status, **extra},
         )
     # Accept all users from other configured OAuth providers
     return default_user
@@ -1518,6 +1607,9 @@ def _sanitize_source_rows_payload(raw_rows: Any) -> list[dict[str, Any]]:
         if not isinstance(file_name, str) or not isinstance(alias, str):
             continue
         clean_row: dict[str, Any] = {"file": file_name, "alias": alias}
+        document_id = row.get("document_id")
+        if isinstance(document_id, str) and document_id.strip():
+            clean_row["document_id"] = document_id.strip()
         source_id = row.get("source_id")
         if isinstance(source_id, int) and source_id > 0:
             clean_row["source_id"] = source_id
@@ -1622,7 +1714,8 @@ def _build_citation_history_view(history: list[dict[str, Any]]) -> tuple[str | N
                 file_name = row.get("file")
                 if isinstance(file_name, str) and file_name.strip():
                     lines.append(f"Datei: `{file_name}`")
-                    pdf_url = _source_pdf_url(file_name)
+                    document_id = row.get("document_id") if isinstance(row.get("document_id"), str) else None
+                    pdf_url = _source_pdf_url(file_name, document_id)
                     page_for_link = page_start
                     if isinstance(page_for_link, int):
                         pdf_url = f"{pdf_url}#page={page_for_link}"
@@ -1712,14 +1805,17 @@ def _build_source_rows_from_results(
                 if isinstance(existing_url, str) and existing_url:
                     url_by_index[idx] = existing_url
             continue
-        file_path = _resolve_source_pdf_path(file_name, allowed_pdf_names)
-        if file_path is None:
+        raw_doc_id = result.metadata.get("document_id") if isinstance(result.metadata, dict) else None
+        document_id = raw_doc_id.strip() if isinstance(raw_doc_id, str) and raw_doc_id.strip() else None
+        # Legacy shared-KB chunks have no document_id; they require a real file in DATA_RAW_DIR
+        # for the link to resolve. User-uploaded KB chunks are served by document_id and don't.
+        if document_id is None and _resolve_source_pdf_path(file_name, allowed_pdf_names) is None:
             continue
         page_end = result.metadata.get("page_end") if isinstance(result.metadata.get("page_end"), int) else None
         section_title = _resolve_section_title(result.metadata)
         page_start = extract_page(result.metadata)
         alias = _source_alias(display_counter, section_title, page_start, page_end)
-        pdf_url = _source_pdf_url(file_name)
+        pdf_url = _source_pdf_url(file_name, document_id)
         if isinstance(page, int):
             pdf_url = f"{pdf_url}#page={page}"
         evidence_snippet = _first_sentence(result.text)
@@ -1741,6 +1837,7 @@ def _build_source_rows_from_results(
             {
                 "alias": alias,
                 "file": file_name,
+                "document_id": document_id,
                 "page": page,
                 "page_start": page_start if isinstance(page_start, int) else None,
                 "page_end": page_end if isinstance(page_end, int) else None,
@@ -1796,8 +1893,10 @@ def _build_source_rows_from_langflow_citations(
         if not file_name:
             continue
 
-        file_path = _resolve_source_pdf_path(file_name, allowed_pdf_names)
-        if file_path is None:
+        raw_doc_id = raw.get("document_id")
+        document_id = raw_doc_id.strip() if isinstance(raw_doc_id, str) and raw_doc_id.strip() else None
+        # Same gate as the native path: only legacy/no-doc-id chunks need a real file on disk.
+        if document_id is None and _resolve_source_pdf_path(file_name, allowed_pdf_names) is None:
             continue
 
         page_start = raw.get("page_start") if isinstance(raw.get("page_start"), int) else extract_page(meta)
@@ -1808,7 +1907,7 @@ def _build_source_rows_from_langflow_citations(
             else _resolve_section_title(meta)
         )
         alias = _source_alias(citation_number, section_title, page_start, page_end)
-        pdf_url = _source_pdf_url(file_name)
+        pdf_url = _source_pdf_url(file_name, document_id)
         if isinstance(page_start, int):
             pdf_url = f"{pdf_url}#page={page_start}"
 
@@ -1831,6 +1930,7 @@ def _build_source_rows_from_langflow_citations(
             {
                 "alias": alias,
                 "file": file_name,
+                "document_id": document_id,
                 "page": page_start if isinstance(page_start, int) else None,
                 "page_start": page_start if isinstance(page_start, int) else None,
                 "page_end": page_end if isinstance(page_end, int) else None,
@@ -1971,10 +2071,18 @@ async def _finalize_assistant_reply(
         box_lines: list[str] = []
         if source_rows:
             box_lines = ["## Quellen & Belegstellen", ""]
-            for visible_idx, (src_idx, alias, file_name, page_start, page_end, section_title, evidence) in enumerate(source_rows, start=1):
+            # source_rows and source_rows_for_session are parallel arrays — zip to pull
+            # document_id (only carried by the dict form) while still unpacking the tuple.
+            for visible_idx, (row_tuple, row_dict) in enumerate(
+                zip(source_rows, source_rows_for_session), start=1
+            ):
+                src_idx, alias, file_name, page_start, page_end, section_title, evidence = row_tuple
                 page_label = _page_label(page_start, page_end)
                 section_label = section_title or "Abschnitt unbekannt"
-                pdf_url = _source_pdf_url(file_name)
+                document_id = row_dict.get("document_id") if isinstance(row_dict, dict) else None
+                if not isinstance(document_id, str) or not document_id.strip():
+                    document_id = None
+                pdf_url = _source_pdf_url(file_name, document_id)
                 page_for_link = page_start if isinstance(page_start, int) else None
                 if isinstance(page_for_link, int):
                     pdf_url = f"{pdf_url}#page={page_for_link}"
@@ -2040,6 +2148,12 @@ async def _finalize_assistant_reply(
             source_rows_for_session,
             citation_step_id=assistant_reply.id,
         )
+
+    # Attach one inline cl.Pdf(display="side") per cited source so clicking the alias
+    # text in the message body opens the PDF in the right side panel instead of a new tab.
+    inline_pdf_elements = _build_inline_pdf_elements(source_rows_for_session)
+    if inline_pdf_elements:
+        assistant_reply.elements = (assistant_reply.elements or []) + inline_pdf_elements
 
     await assistant_reply.send()
     if citation_panel_content:
@@ -2150,7 +2264,8 @@ def _append_source_links_to_panel(panel_content: str, source_rows: list[dict[str
         if key in seen:
             continue
         seen.add(key)
-        pdf_url = _source_pdf_url(file_name)
+        document_id = row.get("document_id") if isinstance(row.get("document_id"), str) else None
+        pdf_url = _source_pdf_url(file_name, document_id)
         if isinstance(page, int):
             pdf_url = f"{pdf_url}#page={page}"
         label = alias
@@ -2177,6 +2292,44 @@ def _build_citation_elements(
             elements.append(cl.Text(name="CITATIONS_PANEL", url=_citation_panel_url(citation_step_id), display="side"))
         else:
             elements.append(cl.Text(name="CITATIONS_PANEL", content=panel_content, display="side"))
+    return elements
+
+
+def _build_inline_pdf_elements(source_rows: list[dict[str, Any]] | None) -> list[Any]:
+    """One cl.Pdf(display="side") per cited source so Chainlit matches the bare alias
+    text in the message body and opens the PDF in the right side panel. De-dup on alias
+    because the alias is what appears in the text; a doc_id-backed row and a legacy
+    row both produce a valid url via _source_pdf_url."""
+    elements: list[Any] = []
+    if not source_rows:
+        return elements
+    seen: set[str] = set()
+    for row in source_rows:
+        if not isinstance(row, dict):
+            continue
+        alias = row.get("alias")
+        file_name = row.get("file")
+        if not isinstance(alias, str) or not alias.strip():
+            continue
+        if not isinstance(file_name, str) or not file_name.strip():
+            continue
+        if alias in seen:
+            continue
+        document_id = row.get("document_id") if isinstance(row.get("document_id"), str) else None
+        # Legacy (non-doc_id) rows must still resolve against DATA_RAW_DIR.
+        if not document_id and _resolve_source_pdf_path(file_name) is None:
+            continue
+        seen.add(alias)
+        page = row.get("page_start") if isinstance(row.get("page_start"), int) else row.get("page")
+        page_int = page if isinstance(page, int) else 1
+        elements.append(
+            cl.Pdf(
+                name=alias,
+                url=_source_pdf_url(file_name, document_id),
+                page=page_int,
+                display="side",
+            )
+        )
     return elements
 
 
@@ -2304,17 +2457,41 @@ async def auth_callback(username: str, password: str) -> cl.User | None:
     if DATABASE_URL:
         user = await get_user_by_identifier(DATABASE_URL, username)
         if user and user.get("password_hash"):
-            if _verify_password(password, user["password_hash"]):
-                metadata = json.loads(user.get("metadata") or "{}")
-                metadata["provider"] = "local"
-                return cl.User(identifier=user["identifier"], metadata=metadata)
-            return None  # Wrong password for existing user
+            if not _verify_password(password, user["password_hash"]):
+                return None  # Wrong password for existing user
+            row = await upsert_user_on_login(
+                DATABASE_URL,
+                identifier=user["identifier"],
+                provider="local",
+                email=user.get("email"),
+                admin_identifiers=ADMIN_IDENTIFIERS,
+            )
+            status = row.get("status", "approved")
+            if status == "blocked":
+                print(f"[AUTH] rejecting blocked user: {user['identifier']}")
+                return None
+            metadata = json.loads(user.get("metadata") or "{}")
+            metadata["provider"] = "local"
+            metadata["role"] = row.get("role", "user")
+            metadata["status"] = status
+            return cl.User(identifier=user["identifier"], metadata=metadata)
 
     # Fallback to environment variable authentication (for backwards compatibility / admin)
     expected_user = CHAINLIT_AUTH_USERNAME or "admin"
     expected_password = CHAINLIT_AUTH_PASSWORD
     if expected_password and username == expected_user and password == expected_password:
-        return cl.User(identifier=expected_user, metadata={"provider": "password", "role": "admin"})
+        # Upsert the env-admin so the admin UI can target them like any other user.
+        if DATABASE_URL:
+            await upsert_user_on_login(
+                DATABASE_URL,
+                identifier=expected_user,
+                provider="password",
+                admin_identifiers=[*ADMIN_IDENTIFIERS, expected_user],
+            )
+        return cl.User(
+            identifier=expected_user,
+            metadata={"provider": "password", "role": "admin", "status": "approved"},
+        )
 
     return None
 
@@ -2343,7 +2520,56 @@ async def on_app_startup() -> None:
         await ensure_native_schema(DATABASE_URL)
 
     init_chat_db(CHAT_DB_PATH)
+    init_user_kb_db(CHAT_DB_PATH)
     CHAT_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Register user-scoped API routes + static settings UI regardless of whether
+    # the Postgres native chat schema is configured — they only depend on SQLite
+    # + Chainlit auth.
+    if not getattr(chainlit_fastapi_app.state, "user_api_routes_added", False):
+        from api_routes import register_user_api_routes
+
+        user_routes = register_user_api_routes(chainlit_fastapi_app, SYSTEM_PROMPT)
+
+        static_dir = Path(__file__).parent / "static"
+        static_dir.mkdir(parents=True, exist_ok=True)
+
+        from fastapi import Cookie
+        from chainlit.auth import authenticate_user as _auth_user
+
+        @chainlit_fastapi_app.get("/settings/app")
+        async def serve_settings_page(access_token: str | None = Cookie(default=None)):
+            if not access_token:
+                return RedirectResponse(url="/login", status_code=307)
+            try:
+                await _auth_user(access_token)
+            except HTTPException:
+                return RedirectResponse(url="/login", status_code=307)
+            return FileResponse(str(static_dir / "settings.html"), media_type="text/html")
+
+        @chainlit_fastapi_app.get("/admin/app")
+        async def serve_admin_page(access_token: str | None = Cookie(default=None)):
+            if not access_token:
+                return RedirectResponse(url="/login", status_code=307)
+            try:
+                user = await _auth_user(access_token)
+            except HTTPException:
+                return RedirectResponse(url="/login", status_code=307)
+            identifier = getattr(user, "identifier", None)
+            if not identifier or not DATABASE_URL:
+                return RedirectResponse(url="/", status_code=307)
+            pair = await get_user_role_status(DATABASE_URL, identifier)
+            if pair is None or pair[0] != "admin":
+                return RedirectResponse(url="/", status_code=307)
+            return FileResponse(str(static_dir / "admin.html"), media_type="text/html")
+
+        for path in user_routes:
+            _ensure_route_precedes_catch_all(chainlit_fastapi_app, path)
+        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/settings/app")
+        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/admin/app")
+
+        chainlit_fastapi_app.state.user_api_routes_added = True
+        print("[STARTUP] user-scoped API routes registered: /api/kbs, /api/settings/...")
 
     if not DATABASE_URL:
         return
@@ -2351,12 +2577,40 @@ async def on_app_startup() -> None:
     if getattr(chainlit_fastapi_app.state, "native_export_route_added", False):
         return
 
-    @chainlit_fastapi_app.get("/sources/pdf/{file_name:path}")
-    async def source_pdf(file_name: str, current_user=Depends(get_current_user)):
+    @chainlit_fastapi_app.get("/sources/pdf/{identifier:path}")
+    async def source_pdf(identifier: str, current_user=Depends(get_current_user)):
         if current_user is None:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        file_path = _resolve_source_pdf_path(file_name)
+        # First try: treat identifier as a kb_documents.id (user-uploaded file).
+        # UUID check is loose on purpose — record_document generates uuid4s, but
+        # we don't want to pre-reject other shapes if future docs use a different id.
+        if re.fullmatch(r"[0-9a-fA-F-]{8,64}", identifier):
+            doc = get_document(CHAT_DB_PATH, identifier)
+            if doc is not None:
+                kb = get_kb(CHAT_DB_PATH, doc["kb_id"])
+                user_identifier = getattr(current_user, "identifier", None)
+                if kb is None or kb.get("user_id") != user_identifier:
+                    # 404 (not 403) to avoid leaking existence across tenants.
+                    raise HTTPException(status_code=404, detail="Source PDF not found")
+                ext = Path(doc["file_name"]).suffix.lower()
+                doc_root = DATA_KB_DOCS_DIR.resolve()
+                persisted = (DATA_KB_DOCS_DIR / f"{doc['id']}{ext}").resolve()
+                try:
+                    persisted.relative_to(doc_root)
+                except ValueError:
+                    raise HTTPException(status_code=404, detail="Source PDF not found")
+                if not persisted.is_file() or persisted.suffix.lower() != ".pdf":
+                    raise HTTPException(status_code=404, detail="Source PDF not found")
+                return FileResponse(
+                    path=str(persisted),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": "inline"},
+                )
+
+        # Fallback: legacy flat-file lookup in DATA_RAW_DIR (shared Grundschutz PDF
+        # and any historical citation URLs that predate the doc_id scheme).
+        file_path = _resolve_source_pdf_path(identifier)
         if file_path is None:
             raise HTTPException(status_code=404, detail="Source PDF not found")
 
@@ -2420,7 +2674,7 @@ async def on_app_startup() -> None:
 
         return {"message": "Registrierung erfolgreich", "username": user["identifier"]}
 
-    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/sources/pdf/{file_name:path}")
+    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/sources/pdf/{identifier:path}")
     _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/sources/citations/{step_id}")
     _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/export/all-chats")
     _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/auth/register")
@@ -2503,22 +2757,14 @@ async def on_chat_resume(thread: dict[str, Any]):
         cl.user_session.set("citation_panel_content", panel_with_links)
         citation_panel_for_actions = panel_with_links
 
-    history_panel_content, history_rows = _build_citation_history_view(restored_citation_history)
-    if isinstance(history_panel_content, str) and history_panel_content.strip():
-        history_panel_with_links = history_panel_content
-        if "/sources/pdf/" not in history_panel_with_links:
-            history_panel_with_links = _append_source_links_to_panel(history_panel_content, history_rows)
-        await _show_citation_sidebar(
-            history_panel_with_links,
-            history_rows,
-            sidebar_title=CITATION_HISTORY_SIDEBAR_TITLE,
-        )
-    elif isinstance(citation_panel_for_actions, str) and citation_panel_for_actions.strip():
-        await _show_citation_sidebar(
-            citation_panel_for_actions,
-            [],
-            sidebar_title=CITATION_SIDEBAR_TITLE,
-        )
+    # Intentionally do NOT auto-open the citation sidebar on resume.
+    # ElementSidebar.set_title / set_elements force-open the sidebar as a side effect
+    # of populating it, which would pop an unrequested panel every time the user
+    # returns to a chat. The sidebar stays reachable via the per-step "Quellen
+    # anzeigen" action (restored below). Inline cl.Pdf(display="side") elements are
+    # also NOT reattached here: emitting them on historical steps would pop the
+    # sidebar to the last alias. Fresh answers in the resumed session still get
+    # inline PDFs via the hot path in main().
 
     if not latest_assistant_has_actions:
         await _restore_actions_for_step(
@@ -2528,6 +2774,14 @@ async def on_chat_resume(thread: dict[str, Any]):
             citation_panel_content=citation_panel_for_actions,
             citation_source_rows=citation_source_rows_for_actions,
         )
+
+    # Defensive close: if anything in the restore path opened the side view,
+    # set_elements([]) maps to setSideView(undefined) on the Chainlit frontend —
+    # safe idempotent no-op when already closed.
+    try:
+        await cl.ElementSidebar.set_elements([], key="citations_panel")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @cl.set_chat_profiles
@@ -2541,85 +2795,94 @@ async def set_chat_profiles():
 
 
 def _build_chat_settings(current_profile: str | None = None):
-    """Build ChatSettings with profile selector."""
+    """Build ChatSettings with the per-session role selector."""
     profiles = CHAT_PROFILES_CONFIG.get("profiles", [])
     profile_names = [p.get("name", "") for p in profiles if p.get("name")]
-    
     if not profile_names:
         return None
-    
-    # Find current profile index
+
     initial_index = 0
     if current_profile and current_profile in profile_names:
         initial_index = profile_names.index(current_profile)
-    
-    return cl.ChatSettings(
-        [
-            Select(
-                id="chat_profile",
-                label="Ihre Rolle",
-                description="Wählen Sie Ihre Rolle für angepasste Antworten",
-                values=profile_names,
-                initial_index=initial_index,
-            ),
-        ]
-    )
+
+    return cl.ChatSettings([
+        Select(
+            id="chat_profile",
+            label="Ihre Rolle",
+            description="Wählen Sie Ihre Rolle für angepasste Antworten",
+            values=profile_names,
+            initial_index=initial_index,
+        )
+    ])
 
 
 @cl.on_settings_update
 async def on_settings_update(settings: dict[str, Any]):
-    """Handle profile changes in settings."""
-    new_profile_name = settings.get("chat_profile")
-    if not new_profile_name:
-        return
-    
-    # Get user ID
+    """Persist ChatSettings edits: only the per-session role selector."""
     user_id = cl.user_session.get("current_user_id")
-    
-    # Persist the selection
+
+    changed_messages: list[str] = []
+
+    new_profile_name = settings.get("chat_profile")
+    if new_profile_name:
+        if user_id:
+            set_user_selected_chat_profile(CHAT_DB_PATH, user_id, new_profile_name)
+        chat_profile_config = _get_profile_by_name(new_profile_name)
+        cl.user_session.set("chat_profile", new_profile_name)
+        cl.user_session.set("chat_profile_config", chat_profile_config)
+        changed_messages.append(f"Rolle: **{new_profile_name}**")
+
+    # Rebuild the active system prompt from the new state so this chat picks
+    # up the change immediately.
+    user_system_prompt_override: str | None = None
     if user_id:
-        set_user_selected_chat_profile(CHAT_DB_PATH, user_id, new_profile_name)
-        print(f"[DEBUG] on_settings_update: persisted chat_profile={new_profile_name} for user={user_id}")
-    
-    # Update session
-    chat_profile_config = _get_profile_by_name(new_profile_name)
-    cl.user_session.set("chat_profile", new_profile_name)
-    cl.user_session.set("chat_profile_config", chat_profile_config)
-    
-    # Rebuild system prompt with new profile
-    system_prompt = SYSTEM_PROMPT
-    
+        user_system_prompt_override = get_user_system_prompt(CHAT_DB_PATH, user_id)
+    base_system_prompt = user_system_prompt_override or SYSTEM_PROMPT
+    system_prompt = base_system_prompt
+
+    chat_profile_config = cl.user_session.get("chat_profile_config")
     if system_prompt and chat_profile_config:
         profile_prompt = chat_profile_config.get("prompt_context", "")
         if profile_prompt:
             system_prompt = f"{system_prompt}\n\n## ROLLENKONTEXT\n{profile_prompt}"
-    
-    # Add personalization context if available
+
     user_profile = cl.user_session.get("user_profile")
     if system_prompt and user_profile and user_profile.topics:
         personalization_context = _build_personalization_prompt(user_profile)
         system_prompt = f"{system_prompt}\n\n{personalization_context}"
-    
-    # Update messages with new system prompt
+
+    # Refresh the KB catalog block (KB list may have changed).
+    kb_catalog = _build_user_kb_catalog(user_id)
+    cl.user_session.set("kb_catalog", kb_catalog)
+    kb_block = _format_kb_catalog_for_prompt(kb_catalog)
+    if system_prompt and kb_block:
+        system_prompt = f"{system_prompt}\n\n{kb_block}"
+
     messages = cl.user_session.get("messages") or []
-    if messages and messages[0].get("role") == "system":
+    if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
         messages[0]["content"] = system_prompt
     elif system_prompt:
         messages.insert(0, {"role": "system", "content": system_prompt})
     cl.user_session.set("messages", messages)
-    
-    # Show confirmation
-    await cl.Message(
-        content=f"Ihre Rolle wurde geändert zu: **{new_profile_name}**. Zukünftige Antworten werden entsprechend angepasst.",
-        author="System",
-    ).send()
+
+    if changed_messages:
+        await cl.Message(
+            author="System",
+            content="Gespeichert: " + "; ".join(changed_messages) + ".",
+        ).send()
 
 
 @cl.on_chat_start
 async def on_chat_start():
     existing_session_id = cl.user_session.get("chat_history_session_id")
     resume_session_id = existing_session_id if isinstance(existing_session_id, str) and existing_session_id.strip() else None
-    session_id = resume_session_id or str(uuid4())
+    # Use Chainlit's own thread_id (set by the websocket session before on_chat_start
+    # fires and reused by on_chat_resume as thread["id"]) so our SQLite session_id
+    # stays aligned with Chainlit's Postgres thread_id. A fresh uuid4() here would
+    # orphan our source_catalog whenever the user leaves and returns to the chat —
+    # resume would look up an empty row and restart numbering from 1.
+    thread_id = getattr(getattr(cl.context, "session", None), "thread_id", None)
+    session_id = resume_session_id or (thread_id if isinstance(thread_id, str) and thread_id.strip() else str(uuid4()))
     resumed_session = resume_session_id is not None
 
     # Get authenticated user ID if available
@@ -2682,8 +2945,12 @@ async def on_chat_start():
                 user_profile = await update_user_profile(user_id)
     cl.user_session.set("user_profile", user_profile)
 
-    # Build system prompt with chat profile context and personalization
-    system_prompt = SYSTEM_PROMPT
+    # Build system prompt: per-user override falls back to SYSTEM_PROMPT from system.md
+    user_system_prompt_override: str | None = None
+    if user_id:
+        user_system_prompt_override = get_user_system_prompt(CHAT_DB_PATH, user_id)
+    base_system_prompt = user_system_prompt_override or SYSTEM_PROMPT
+    system_prompt = base_system_prompt
 
     # Add chat profile context if selected
     if system_prompt and chat_profile_config:
@@ -2695,6 +2962,13 @@ async def on_chat_start():
     if system_prompt and user_profile and user_profile.topics:
         personalization_context = _build_personalization_prompt(user_profile)
         system_prompt = f"{system_prompt}\n\n{personalization_context}"
+
+    # Build the user's KB catalog and append its description to the system prompt.
+    kb_catalog = _build_user_kb_catalog(user_id)
+    cl.user_session.set("kb_catalog", kb_catalog)
+    kb_block = _format_kb_catalog_for_prompt(kb_catalog)
+    if system_prompt and kb_block:
+        system_prompt = f"{system_prompt}\n\n{kb_block}"
 
     existing_messages = cl.user_session.get("messages")
     messages: list[dict[str, Any]]
@@ -2712,25 +2986,47 @@ async def on_chat_start():
             add_chat_message(CHAT_DB_PATH, session_id, "system", system_prompt)
     cl.user_session.set("messages", messages)
 
-    # Send chat settings with profile selector
+    # Send chat settings with just the role selector (rest lives on /settings/app)
     chat_settings = _build_chat_settings(chat_profile_name)
     if chat_settings:
         await chat_settings.send()
 
 
 @cl.set_starters
-async def set_starters() -> list[Starter]:
+async def set_starters(user: cl.User | None = None) -> list[Starter]:
     starter_icons = [
         "/public/icons/shield.svg",
         "/public/icons/search.svg",
         "/public/icons/book.svg",
     ]
+
+    # Prefer per-user starters when we can resolve a user id; otherwise fall back
+    # to the env-backed defaults so the welcome screen still has questions for
+    # unauthenticated / pre-login renders.
+    user_id: str | None = None
+    if user is not None:
+        user_id = getattr(user, "identifier", None) or getattr(user, "id", None)
+
+    rendered: list[tuple[str, str]] = []
+    if user_id:
+        try:
+            for row in list_user_starters(CHAT_DB_PATH, user_id):
+                label = (row.get("label") or "").strip()
+                message = (row.get("message") or "").strip()
+                if message:
+                    rendered.append((label or message, message))
+        except Exception as exc:  # noqa: BLE001
+            print(f"[WARN] set_starters: load_user_starters failed user_id={user_id} err={exc}")
+
+    if not rendered:
+        rendered = [(q, q) for q in STARTER_QUESTIONS]
+
     starters: list[Starter] = []
-    for i, q in enumerate(STARTER_QUESTIONS[:6]):
+    for i, (label, message) in enumerate(rendered[:6]):
         starters.append(
             Starter(
-                label=q if len(q) <= 70 else q[:67].rstrip() + "...",
-                message=q,
+                label=label if len(label) <= 70 else label[:67].rstrip() + "...",
+                message=message,
                 icon=starter_icons[i % len(starter_icons)],
             )
         )
@@ -2835,7 +3131,10 @@ async def main(message: cl.Message):
     messages = cl.user_session.get("messages") or []
     session_id = _current_chat_session_id()
     if not session_id:
-        session_id = str(uuid4())
+        # Defensive fallback — normally set by on_chat_start / on_chat_resume.
+        # Use Chainlit's thread_id so we don't orphan the catalog across reconnects.
+        thread_id = getattr(getattr(cl.context, "session", None), "thread_id", None)
+        session_id = thread_id if isinstance(thread_id, str) and thread_id.strip() else str(uuid4())
         create_chat_session(CHAT_DB_PATH, session_id)
         cl.user_session.set("chat_history_session_id", session_id)
 
@@ -2928,11 +3227,27 @@ async def main(message: cl.Message):
                     requested_top_k = TOP_K
                 top_k = max(1, min(requested_top_k, MAX_TOP_K))
 
-                signature = f"{function_name}:{json.dumps({'query': query, 'top_k': top_k}, ensure_ascii=False, sort_keys=True)}"
+                requested_kb_id = str(args.get("knowledge_base") or "").strip()
+                kb_catalog = cl.user_session.get("kb_catalog") or {}
+                resolved_kb = _resolve_kb_selection(requested_kb_id, kb_catalog)
+                target_collection = resolved_kb.get("qdrant_collection")
+                resolved_kb_id = resolved_kb.get("id") or requested_kb_id
+
+                signature_key = {
+                    "query": query,
+                    "top_k": top_k,
+                    "knowledge_base": resolved_kb_id,
+                }
+                signature = f"{function_name}:{json.dumps(signature_key, ensure_ascii=False, sort_keys=True)}"
                 if signature in cached_tool_payloads:
                     results, tool_payload = cached_tool_payloads[signature]
                     with cl.Step(name="rag_retrieve", type="tool") as step:
-                        step.input = {"query": query, "top_k": top_k, "cached": True}
+                        step.input = {
+                            "query": query,
+                            "top_k": top_k,
+                            "knowledge_base": resolved_kb_id,
+                            "cached": True,
+                        }
                         step.output = {"hits": len(results), "cached": True}
                 else:
                     with cl.Step(name="rag_retrieve", type="tool") as step:
@@ -2944,9 +3259,21 @@ async def main(message: cl.Message):
                         if PERSONALIZATION_ENABLED and user_profile:
                             # Dynamically determine balance based on query relevance to user interests
                             balance = await determine_balance(query, user_profile, user_role=chat_profile_name)
-                            step.input = {"query": query, "top_k": top_k, "personalized": True, "balance": balance}
+                            step.input = {
+                                "query": query,
+                                "top_k": top_k,
+                                "knowledge_base": resolved_kb_id,
+                                "collection": target_collection,
+                                "personalized": True,
+                                "balance": balance,
+                            }
                         else:
-                            step.input = {"query": query, "top_k": top_k}
+                            step.input = {
+                                "query": query,
+                                "top_k": top_k,
+                                "knowledge_base": resolved_kb_id,
+                                "collection": target_collection,
+                            }
 
                         # Use personalized retrieval if profile available
                         results = await personalized_retrieve(
@@ -2954,6 +3281,7 @@ async def main(message: cl.Message):
                             user_profile=user_profile,
                             balance=balance,
                             top_k=top_k,
+                            collection=target_collection,
                         )
                         print(
                             "[DEBUG] rag_retrieve",
@@ -3096,13 +3424,17 @@ async def main(message: cl.Message):
                     if isinstance(existing_url, str) and existing_url:
                         url_by_index[idx] = existing_url
                 continue
-            file_path = _resolve_source_pdf_path(file_name, allowed_pdf_names)
-            if file_path is not None:
+            raw_doc_id = result.metadata.get("document_id") if isinstance(result.metadata, dict) else None
+            document_id = raw_doc_id.strip() if isinstance(raw_doc_id, str) and raw_doc_id.strip() else None
+            # Legacy shared-KB chunks must resolve to a real file; user-uploaded chunks
+            # are served via document_id and don't need a DATA_RAW_DIR hit.
+            file_ok = document_id is not None or _resolve_source_pdf_path(file_name, allowed_pdf_names) is not None
+            if file_ok:
                 page_end = result.metadata.get("page_end") if isinstance(result.metadata.get("page_end"), int) else None
                 section_title = _resolve_section_title(result.metadata)
                 page_start = extract_page(result.metadata)
                 alias = _source_alias(display_counter, section_title, page_start, page_end)
-                pdf_url = _source_pdf_url(file_name)
+                pdf_url = _source_pdf_url(file_name, document_id)
                 if isinstance(page, int):
                     pdf_url = f"{pdf_url}#page={page}"
                 evidence_snippet = _first_sentence(result.text)
@@ -3124,6 +3456,7 @@ async def main(message: cl.Message):
                     {
                         "alias": alias,
                         "file": file_name,
+                        "document_id": document_id,
                         "page": page,
                         "page_start": page_start if isinstance(page_start, int) else None,
                         "page_end": page_end if isinstance(page_end, int) else None,
@@ -3242,10 +3575,14 @@ async def main(message: cl.Message):
         detail_block = ""
         if source_rows:
             box_lines = ["## Quellen & Belegstellen", ""]
-            for visible_idx, (src_idx, alias, file_name, page_start, page_end, section_title, evidence) in enumerate(source_rows, start=1):
+            for visible_idx, (row, session_row) in enumerate(
+                zip(source_rows, source_rows_for_session), start=1
+            ):
+                src_idx, alias, file_name, page_start, page_end, section_title, evidence = row
                 page_label = _page_label(page_start, page_end)
                 section_label = section_title or "Abschnitt unbekannt"
-                pdf_url = _source_pdf_url(file_name)
+                document_id = session_row.get("document_id") if isinstance(session_row, dict) else None
+                pdf_url = _source_pdf_url(file_name, document_id)
                 page_for_link = page_start if isinstance(page_start, int) else None
                 if isinstance(page_for_link, int):
                     pdf_url = f"{pdf_url}#page={page_for_link}"
@@ -3314,6 +3651,12 @@ async def main(message: cl.Message):
                 citation_step_id=assistant_reply.id,
             )
             assistant_reply.elements = panel_elements
+
+        # Attach one inline cl.Pdf(display="side") per cited source so clicking the alias
+        # text in the message body opens the PDF in the right side panel instead of a new tab.
+        inline_pdf_elements = _build_inline_pdf_elements(source_rows_for_session)
+        if inline_pdf_elements:
+            assistant_reply.elements = (assistant_reply.elements or []) + inline_pdf_elements
 
         await assistant_reply.send()
         if citation_panel_content:

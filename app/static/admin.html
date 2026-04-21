@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Benutzer — Workshop RAG</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --panel-2: #eceef1;
+    --border: #d7dae0;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #4b5563;
+    --accent-text: #ffffff;
+    --danger: #b91c1c;
+    --ok: #15803d;
+  }
+  body.theme-dark {
+    --bg: #1b1d22;
+    --panel: #24272e;
+    --panel-2: #2d3139;
+    --border: #3a3f48;
+    --text: #e5e7eb;
+    --muted: #9aa0aa;
+    --accent: #d1d5db;
+    --accent-text: #111418;
+    --danger: #f87171;
+    --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  section h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+  section .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  td.actions {
+    white-space: nowrap;
+    text-align: right;
+  }
+  button {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button + button { margin-left: 6px; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.bad { color: var(--danger); border-color: var(--danger); }
+  .pill.admin { color: var(--accent); border-color: var(--accent); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .status { font-size: 13px; margin-top: 10px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Benutzer</h1>
+</header>
+<main>
+  <section>
+    <h2>Registrierte Benutzer</h2>
+    <div class="sub">Zugriff freigeben oder sperren, Rollen verwalten. Änderungen greifen ab dem nächsten Login des Benutzers.</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Identifier</th>
+          <th>Anbieter</th>
+          <th>Status</th>
+          <th>Rolle</th>
+          <th>Letzter Login</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+    <div id="status" class="status"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const theme = params.get("theme") === "dark" ? "theme-dark" : "theme-light";
+  document.body.classList.add(theme);
+})();
+</script>
+<script>
+(() => {
+  const notifyParentDirty = () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "settings-saved" }, "*");
+    }
+  };
+
+  const api = async (path, opts = {}) => {
+    const method = (opts.method || "GET").toUpperCase();
+    const res = await fetch(path, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      ...opts,
+    });
+    if (!res.ok) {
+      let detail;
+      try { detail = (await res.json()).detail; } catch (_) { detail = await res.text(); }
+      throw new Error(detail || `${res.status} ${res.statusText}`);
+    }
+    if (method !== "GET") notifyParentDirty();
+    if (res.status === 204) return null;
+    const type = res.headers.get("content-type") || "";
+    return type.includes("application/json") ? res.json() : res.text();
+  };
+
+  const tbody = document.getElementById("users-tbody");
+  const statusEl = document.getElementById("status");
+
+  const fmtDate = (iso) => {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("de-DE", {
+        dateStyle: "short",
+        timeStyle: "short",
+      });
+    } catch (_) {
+      return iso;
+    }
+  };
+
+  const setStatus = (text, kind = "") => {
+    statusEl.className = `status ${kind}`;
+    statusEl.textContent = text;
+  };
+
+  const render = (users, me) => {
+    tbody.innerHTML = "";
+    if (!users.length) {
+      const row = document.createElement("tr");
+      row.innerHTML = '<td colspan="6" class="muted">Keine Benutzer gefunden.</td>';
+      tbody.appendChild(row);
+      return;
+    }
+    for (const u of users) {
+      const row = document.createElement("tr");
+      const isSelf = me && u.identifier === me.identifier;
+      const statusPill = u.status === "blocked"
+        ? '<span class="pill bad">gesperrt</span>'
+        : '<span class="pill ok">aktiv</span>';
+      const rolePill = u.role === "admin"
+        ? '<span class="pill admin">Admin</span>'
+        : '<span class="pill">User</span>';
+      const provider = (u.metadata && u.metadata.provider) || "—";
+      row.innerHTML = `
+        <td>
+          <div><strong>${escapeHtml(u.identifier)}</strong>${isSelf ? ' <span class="muted">(du)</span>' : ""}</div>
+          <div class="muted">${escapeHtml(u.email || "")}</div>
+        </td>
+        <td><span class="muted">${escapeHtml(provider)}</span></td>
+        <td>${statusPill}</td>
+        <td>${rolePill}</td>
+        <td class="muted">${fmtDate(u.lastLoginAt)}</td>
+        <td class="actions"></td>
+      `;
+      const actions = row.querySelector(".actions");
+
+      if (u.status === "blocked") {
+        actions.appendChild(btn("Entsperren", "secondary", () =>
+          patchUser(u.id, { status: "approved" })));
+      } else if (!isSelf) {
+        actions.appendChild(btn("Sperren", "danger", () =>
+          patchUser(u.id, { status: "blocked" })));
+      }
+      if (u.role === "admin") {
+        if (!isSelf) {
+          actions.appendChild(btn("Admin entziehen", "secondary", () =>
+            patchUser(u.id, { role: "user" })));
+        }
+      } else {
+        actions.appendChild(btn("Zum Admin machen", "secondary", () =>
+          patchUser(u.id, { role: "admin" })));
+      }
+      tbody.appendChild(row);
+    }
+  };
+
+  const btn = (label, cls, handler) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        await handler();
+      } catch (err) {
+        setStatus(err.message, "err");
+      } finally {
+        b.disabled = false;
+      }
+    });
+    return b;
+  };
+
+  const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
+  const patchUser = async (userId, payload) => {
+    await api(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    setStatus("Aktualisiert.", "ok");
+    await reload();
+  };
+
+  const reload = async () => {
+    try {
+      const [{ users }, me] = await Promise.all([
+        api("/api/admin/users"),
+        api("/api/me"),
+      ]);
+      render(users, me);
+    } catch (err) {
+      setStatus(err.message, "err");
+    }
+  };
+
+  reload();
+})();
+</script>
+</body>
+</html>
