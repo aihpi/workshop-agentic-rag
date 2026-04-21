@@ -5,7 +5,7 @@ import json
 from typing import Any
 from urllib import error, request
 
-from settings import LANGFLOW_API_KEY, LANGFLOW_BASE_URL, LANGFLOW_FLOW_ID, LANGFLOW_OUTPUT_COMPONENT
+from core.settings import LANGFLOW_API_KEY, LANGFLOW_BASE_URL, LANGFLOW_FLOW_ID, LANGFLOW_OUTPUT_COMPONENT
 
 
 class LangflowError(RuntimeError):

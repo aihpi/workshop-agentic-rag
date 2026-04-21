@@ -4,7 +4,7 @@ from typing import Any
 
 import litellm
 
-from settings import CHAT_MODEL, EMBED_MODEL, LITELLM_API_KEY, LITELLM_BASE_URL
+from core.settings import CHAT_MODEL, EMBED_MODEL, LITELLM_API_KEY, LITELLM_BASE_URL
 
 
 def _client_args() -> dict[str, Any]:

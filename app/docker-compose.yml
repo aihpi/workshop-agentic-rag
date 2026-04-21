@@ -156,7 +156,7 @@ services:
             exit 0;
           fi;
         fi;
-        python ingest_docling.py \
+        python -m kb.ingest_docling \
           --docling-json-dir "$$INGEST_DOCLING_JSON_DIR" \
           --collection "$$QDRANT_COLLECTION" \
           --batch-size "$$INGEST_BATCH_SIZE" \

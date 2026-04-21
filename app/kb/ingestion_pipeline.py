@@ -1,6 +1,6 @@
 """Shared document ingestion pipeline: parse → chunk → embed → upsert.
 
-Used by the per-user FastAPI upload endpoint (app/api_routes.py).
+Used by the per-user FastAPI upload endpoint (app/api/api_routes.py).
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from llm import embed
-from settings import (
+from core.llm import embed
+from core.settings import (
     CHUNK_MAX_CHARS,
     CHUNK_OVERLAP,
     EMBED_BATCH_SIZE,

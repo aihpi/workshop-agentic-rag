@@ -17,22 +17,22 @@ from fastapi import Depends, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from ingestion_pipeline import (
+from kb.ingestion_pipeline import (
     SUPPORTED_EXTENSIONS,
     delete_document_points,
     drop_collection,
     ingest_sections,
     parse_file,
 )
-from native_chat import (
+from chat.native_chat import (
     accept_terms,
     get_terms_status,
     get_user_role_status,
     list_all_users,
     update_user_admin_fields,
 )
-from prompt_generator import generate_starters, generate_system_prompt
-from settings import (
+from api.prompt_generator import generate_starters, generate_system_prompt
+from core.settings import (
     CHAT_DB_PATH,
     DATA_KB_DOCS_DIR,
     DATABASE_URL,
@@ -40,7 +40,7 @@ from settings import (
     QDRANT_COLLECTION,
     TERMS_VERSION,
 )
-from user_kb import (
+from kb.user_kb import (
     SHARED_KB_ID,
     create_kb,
     delete_document,

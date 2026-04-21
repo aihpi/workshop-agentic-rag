@@ -12,8 +12,8 @@ import random
 import re
 from typing import Any
 
-from llm import chat
-from rag_tool import _get_client
+from core.llm import chat
+from kb.rag_tool import _get_client
 
 
 def _sample_chunks(collection: str, n: int = 30) -> list[dict[str, Any]]:

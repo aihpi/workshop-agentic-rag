@@ -14,5 +14,6 @@ dependencies = [
     "bcrypt>=4.1.0",
 ]
 
-[tool.setuptools.packages.find]
-include = []
+[tool.setuptools]
+packages = ["core", "chat", "kb", "api", "langflow", "langflow.components"]
+py-modules = ["app"]

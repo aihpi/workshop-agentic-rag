@@ -8,8 +8,8 @@ import json
 from qdrant_client import QdrantClient
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-from llm import embed
-from settings import (
+from core.llm import embed
+from core.settings import (
     CITATION_MAP_PATH,
     GRUNDSCHUTZ_SOURCE_PDF,
     PERSONALIZATION_ENABLED,
@@ -22,7 +22,7 @@ from settings import (
 )
 
 if TYPE_CHECKING:
-    from user_profile import UserProfile
+    from kb.user_profile import UserProfile
 
 
 @dataclass
@@ -288,7 +288,7 @@ async def personalized_retrieve(
     Returns:
         List of RagResult objects with personalized scoring
     """
-    from user_profile import compute_profile_relevance
+    from kb.user_profile import compute_profile_relevance
 
     # If personalization disabled or no profile, fall back to standard retrieval
     if not PERSONALIZATION_ENABLED or user_profile is None or balance >= 1.0:
