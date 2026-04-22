@@ -7,10 +7,14 @@ Registered by `register_user_api_routes()` from inside the Chainlit
 
 from __future__ import annotations
 
+import logging
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from chainlit.auth import get_current_user
 from fastapi import Depends, File, HTTPException, UploadFile
@@ -281,7 +285,20 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             tmp_path = Path(tmp.name)
 
         try:
-            sections = parse_file(tmp_path)
+            # Stage 1 — Docling parse. CPU-heavy; on OOM/timeout this is where it dies.
+            t0 = time.monotonic()
+            try:
+                sections = parse_file(tmp_path)
+            except Exception:
+                logger.exception(
+                    "upload.parse_failed kb_id=%s filename=%s size=%d elapsed=%.1fs",
+                    kb_id, original_name, total, time.monotonic() - t0,
+                )
+                raise
+            logger.info(
+                "upload.parse_ok kb_id=%s filename=%s sections=%d elapsed=%.1fs",
+                kb_id, original_name, len(sections) if sections else 0, time.monotonic() - t0,
+            )
             if not sections:
                 raise HTTPException(
                     status_code=422,
@@ -297,22 +314,45 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                 chunk_count=0,
             )
 
-            # Persist bytes on disk keyed by doc_id so /sources/pdf/{doc_id} can serve them.
-            # Copy (not move) so the tmp file is still around if later steps raise.
+            # Stage 2 — persist to DATA_KB_DOCS_DIR (PVC-backed in k8s). Defensive mkdir
+            # so a freshly-attached PVC or a manually-deleted dir self-heals.
             persisted_path = _persisted_doc_path(doc_row["id"], original_name)
-            shutil.copyfile(tmp_path, persisted_path)
+            try:
+                persisted_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(tmp_path, persisted_path)
+            except Exception:
+                logger.exception(
+                    "upload.persist_failed kb_id=%s doc_id=%s dest=%s",
+                    kb_id, doc_row["id"], persisted_path,
+                )
+                delete_document(CHAT_DB_PATH, doc_row["id"])
+                raise
 
             try:
                 # Point the sections at the upload's original name for citation display.
                 for section in sections:
                     section["file"] = original_name
 
-                chunk_count = await ingest_sections(
-                    sections,
-                    collection=kb["qdrant_collection"],
-                    kb_id=kb_id,
-                    document_id=doc_row["id"],
+                # Stage 3 — embed + upsert to Qdrant. Hits LiteLLM + Qdrant over network.
+                t1 = time.monotonic()
+                try:
+                    chunk_count = await ingest_sections(
+                        sections,
+                        collection=kb["qdrant_collection"],
+                        kb_id=kb_id,
+                        document_id=doc_row["id"],
+                    )
+                except Exception:
+                    logger.exception(
+                        "upload.embed_failed kb_id=%s doc_id=%s collection=%s elapsed=%.1fs",
+                        kb_id, doc_row["id"], kb["qdrant_collection"], time.monotonic() - t1,
+                    )
+                    raise
+                logger.info(
+                    "upload.embed_ok kb_id=%s doc_id=%s chunks=%d elapsed=%.1fs",
+                    kb_id, doc_row["id"], chunk_count, time.monotonic() - t1,
                 )
+
                 # Update chunk_count after ingest.
                 import sqlite3
 
