@@ -18,14 +18,6 @@ Implementation sketch — compose three existing helpers into one `DELETE /api/u
 
 UI: small "delete my account" button in the ingestion panel; admin-only list + delete in a separate admin view. Estimate ~½ day.
 
-## Bake `system.md` into the production image
-
-[Dockerfile:11](Dockerfile#L11) copies `app/` only. At runtime [app/core/settings.py:51-54](app/core/settings.py#L51-L54) resolves `SYSTEM_PROMPT_PATH` to `<BASE_DIR>/../system.md` → `/system.md`, which doesn't exist. Compose hides this via a bind mount ([app/docker-compose.yml:62](app/docker-compose.yml#L62)); k8s doesn't.
-
-Fix: two lines.
-- `COPY system.md /workspace/system.md` in the root Dockerfile.
-- `SYSTEM_PROMPT_PATH=/workspace/system.md` in the sealed secret (or the deployment's plain env).
-
 ## LaTeX / math rendering — off by default, delimiter mismatch
 
 [app/.chainlit/config.toml:34](app/.chainlit/config.toml#L34) has `latex = false`, so math in model responses renders as raw text (user saw `(W^{Q}_{i}, W^{K}_{i}, W^{V}_{i})` and `d_{\text{model}}` unrendered). Chainlit's comment warns that turning it on clashes with literal `$` characters — a real tradeoff for a chat app where users may paste code or prices.
