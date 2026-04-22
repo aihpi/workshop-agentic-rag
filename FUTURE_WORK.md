@@ -50,6 +50,23 @@ Fix (~5 lines):
 
 Verification: wipe a user with `DELETE FROM "User" WHERE identifier = 'X'`, log in fresh, modal should appear. With the current code it silently doesn't.
 
+## GPU Docling service — finish the scaffold
+
+`k8s/docling-service.yaml` ships a Deployment + Service skeleton with `replicas: 0`, GPU resource request, and `imagePullPolicy: IfNotPresent`. Manual scale today (`kubectl scale deploy/docling-service --replicas=1`), but three pieces are missing:
+
+1. **Service code.** `uvicorn docling_service:app` expects `app/docling_service.py` — a small FastAPI wrapper around `docling.DocumentConverter`. Minimal shape:
+   - `POST /process` (multipart PDF) → returns Docling JSON structure matching what `kb.ingest_docling._build_docs_from_docling_json` already consumes.
+   - `GET /healthz` → `200` once the DocumentConverter is warm; used by the readiness probe.
+   - Load the DocumentConverter once at startup so the first request doesn't pay the model-load cost.
+
+2. **App-side integration.** [app/kb/ingestion_pipeline.py](app/kb/ingestion_pipeline.py) currently runs Docling in-process. Swap in an optional HTTP path: if `DOCLING_SERVICE_URL` is set, `POST` the PDF there; otherwise fall back to local. Gives us per-deploy control without a hard dependency.
+
+3. **Schedule-aware scaling.** Two options when we get there:
+   - **Cron-based** (simpler, no new infra): two `CronJob` manifests scaling the Deployment up 15 min before workshops and down 30 min after. Dates hardcoded, so annoying but honest.
+   - **App-driven** (more elegant): app sees an upload, checks `docling-service` ready replicas, scales 0→1 via k8s API if needed, polls readiness, then forwards. Needs a ServiceAccount with `apps/deployments/scale` verb on just this one Deployment. Small blast radius.
+
+Ties into the "Strip CUDA from the image" entry below — once the main app image is CPU-only, this service becomes the single place CUDA wheels live, and the image split pays for itself in pull time.
+
 ## Strip CUDA from the image (~4 GB win)
 
 Built image is ~6 GB; roughly 4 of that is `nvidia-*` / `cuda-*` / `cudnn` / `nccl` that we never execute — k8s target is CPU-only. Root cause: `docling` pulls `torch`, and pip's default Linux torch wheel is the CUDA variant.
