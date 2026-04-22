@@ -2,6 +2,24 @@
 
 Running list of known gaps and follow-up work. Order ≈ priority, not strict.
 
+## **P0 — GPU Docling service** (blocks multi-user upload)
+
+Current state (after 2026-04-22 demo prep): CPU Docling works in the `workshop-app` pod (16Gi mem limit), but a single 2 MB text PDF takes **~30s** to parse. With 10 workshop participants uploading concurrently we'd see three failure modes: serial queueing (~5 min wait for the last user), pod OOM (peak memory 6–8 Gi per parse × concurrent uploads trips the 16 Gi limit), and chat freeze (CPU starvation of the serving path). [k8s/docling-service.yaml](k8s/docling-service.yaml) ships the Deployment + Service skeleton with `replicas: 0` and a GPU resource request; the integration is what's missing.
+
+Three pieces to finish:
+
+1. **Service code.** `uvicorn docling_service:app` expects `app/docling_service.py` — a small FastAPI wrapper around `docling.DocumentConverter`. Minimal shape:
+   - `POST /process` (multipart PDF) → returns Docling JSON structure matching what `kb.ingest_docling._build_docs_from_docling_json` already consumes.
+   - `GET /healthz` → `200` once the DocumentConverter is warm; used by the readiness probe.
+   - Load the DocumentConverter once at startup so the first request doesn't pay the model-load cost.
+2. **App-side integration.** [app/kb/ingestion_pipeline.py](app/kb/ingestion_pipeline.py) `parse_pdf()` currently runs Docling in-process. Swap in an optional HTTP path: if `DOCLING_SERVICE_URL` is set, `POST` the PDF there; otherwise fall back to local. Per-deploy control without a hard dependency.
+3. **GPU allocation.** A30 is MIG-capable (1g.10gb slices fit Docling comfortably). Confirm with `kubectl get nodes -o json | jq '.items[].status.capacity'` — if MIG is exposed, request `nvidia.com/mig-1g.10gb: 1` and up to 4 docling-service pods share one A30. Else fall back to `nvidia.com/gpu: 1` (whole device).
+4. **Schedule-aware scaling** (smaller win, can wait):
+   - **Cron-based** (simpler, no new infra): two `CronJob` manifests scaling the Deployment up 15 min before workshops and down 30 min after. Dates hardcoded but honest.
+   - **App-driven**: app sees upload, checks `docling-service` ready replicas, scales 0→1 via k8s API, polls readiness, then forwards. Needs ServiceAccount with `apps/deployments/scale` verb on just this one Deployment.
+
+Ties into "Strip CUDA from the image" below — once the main app image is CPU-only, this service becomes the single place CUDA wheels live, and the image split pays for itself in pull time.
+
 ## User delete endpoint
 
 Today there's no way for a user (or admin) to delete their account + data. Data is spread across Postgres, SQLite, Qdrant, and disk, so accounts linger and accumulate.
@@ -41,23 +59,6 @@ Fix (~5 lines):
 - Re-run on `popstate` / after the login route transition, the same pattern `markLoginPage` already uses.
 
 Verification: wipe a user with `DELETE FROM "User" WHERE identifier = 'X'`, log in fresh, modal should appear. With the current code it silently doesn't.
-
-## GPU Docling service — finish the scaffold
-
-`k8s/docling-service.yaml` ships a Deployment + Service skeleton with `replicas: 0`, GPU resource request, and `imagePullPolicy: IfNotPresent`. Manual scale today (`kubectl scale deploy/docling-service --replicas=1`), but three pieces are missing:
-
-1. **Service code.** `uvicorn docling_service:app` expects `app/docling_service.py` — a small FastAPI wrapper around `docling.DocumentConverter`. Minimal shape:
-   - `POST /process` (multipart PDF) → returns Docling JSON structure matching what `kb.ingest_docling._build_docs_from_docling_json` already consumes.
-   - `GET /healthz` → `200` once the DocumentConverter is warm; used by the readiness probe.
-   - Load the DocumentConverter once at startup so the first request doesn't pay the model-load cost.
-
-2. **App-side integration.** [app/kb/ingestion_pipeline.py](app/kb/ingestion_pipeline.py) currently runs Docling in-process. Swap in an optional HTTP path: if `DOCLING_SERVICE_URL` is set, `POST` the PDF there; otherwise fall back to local. Gives us per-deploy control without a hard dependency.
-
-3. **Schedule-aware scaling.** Two options when we get there:
-   - **Cron-based** (simpler, no new infra): two `CronJob` manifests scaling the Deployment up 15 min before workshops and down 30 min after. Dates hardcoded, so annoying but honest.
-   - **App-driven** (more elegant): app sees an upload, checks `docling-service` ready replicas, scales 0→1 via k8s API if needed, polls readiness, then forwards. Needs a ServiceAccount with `apps/deployments/scale` verb on just this one Deployment. Small blast radius.
-
-Ties into the "Strip CUDA from the image" entry below — once the main app image is CPU-only, this service becomes the single place CUDA wheels live, and the image split pays for itself in pull time.
 
 ## Strip CUDA from the image (~4 GB win)
 
