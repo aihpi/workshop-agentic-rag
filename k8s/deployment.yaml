@@ -35,11 +35,11 @@ spec:
               mountPath: /data/kb_docs
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
               memory: "2Gi"
-              cpu: "1000m"
+              cpu: "500m"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"
       volumes:
         - name: kb-docs
           persistentVolumeClaim:
