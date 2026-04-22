@@ -9,6 +9,7 @@ WORKDIR /app
 RUN pip install --upgrade pip
 
 COPY app/ /app/
+COPY data/data_docling_json_ocr/ /data/data_docling_json_ocr/
 RUN pip install -e .
 
 EXPOSE 8000

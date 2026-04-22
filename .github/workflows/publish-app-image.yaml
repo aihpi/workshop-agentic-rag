@@ -9,6 +9,7 @@ on:
     paths:
       - Dockerfile
       - app/**
+      - data/data_docling_json_ocr/**
       - system.md
       - .github/workflows/publish-app-image.yaml
   workflow_dispatch:
