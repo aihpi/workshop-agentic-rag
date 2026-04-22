@@ -29,3 +29,11 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 5m
+  ignoreDifferences:
+    # docling-service is manually scaled around workshops. Without this
+    # ignore, selfHeal would revert `kubectl scale` back to replicas: 0.
+    - group: apps
+      kind: Deployment
+      name: docling-service
+      jsonPointers:
+        - /spec/replicas
