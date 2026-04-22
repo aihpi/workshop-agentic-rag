@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: workshop
+  name: rag-workshop
   namespace: argocd
 spec:
   description: Workshop Agentic RAG — Chainlit app, Postgres, Qdrant
