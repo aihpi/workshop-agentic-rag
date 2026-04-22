@@ -6,6 +6,18 @@ ENV PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
+# Docling -> docling_ibm_models -> cv2 (OpenCV) needs these at runtime.
+# Without them any PDF upload fails with ImportError: libxcb.so.1.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+        libxcb1 \
+        libxext6 \
+        libsm6 \
+        libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --upgrade pip
 
 COPY app/ /app/
