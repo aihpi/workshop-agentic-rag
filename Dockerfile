@@ -9,6 +9,7 @@ WORKDIR /app
 RUN pip install --upgrade pip
 
 COPY app/ /app/
+COPY system.md /app/system.md
 COPY data/data_docling_json_ocr/ /data/data_docling_json_ocr/
 RUN pip install -e .
 
