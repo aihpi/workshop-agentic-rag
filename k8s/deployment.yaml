@@ -25,6 +25,8 @@ spec:
           env:
             - name: DATA_KB_DOCS_DIR
               value: /data/kb_docs
+            - name: DATA_RAW_DIR
+              value: /data/data_raw
           envFrom:
             - secretRef:
                 name: workshop-app-secrets

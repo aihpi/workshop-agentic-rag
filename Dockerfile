@@ -11,6 +11,7 @@ RUN pip install --upgrade pip
 COPY app/ /app/
 COPY system.md /app/system.md
 COPY data/data_docling_json_ocr/ /data/data_docling_json_ocr/
+COPY data/data_raw/ /data/data_raw/
 RUN pip install -e .
 
 EXPOSE 8000
