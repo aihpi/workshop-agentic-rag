@@ -4,7 +4,7 @@ metadata:
   name: workshop-agentic-rag
   namespace: argocd
 spec:
-  project: workshop
+  project: rag-workshop
   source:
     repoURL: https://github.com/aihpi/workshop-agentic-rag.git
     targetRevision: main
