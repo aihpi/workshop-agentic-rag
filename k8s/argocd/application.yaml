@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workshop-agentic-rag
+  namespace: argocd
+spec:
+  project: workshop
+  source:
+    repoURL: https://github.com/aihpi/workshop-agentic-rag.git
+    targetRevision: main
+    path: k8s
+    directory:
+      recurse: false
+      exclude: "argocd/**"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: workshop-agentic-rag
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

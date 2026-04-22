@@ -6,6 +6,8 @@ metadata:
     app: workshop-app
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: workshop-app
@@ -19,9 +21,15 @@ spec:
           image: ghcr.io/aihpi/workshop-agentic-rag:sha-4d34e93
           ports:
             - containerPort: 8000
+          env:
+            - name: DATA_KB_DOCS_DIR
+              value: /data/kb_docs
           envFrom:
             - secretRef:
                 name: workshop-app-secrets
+          volumeMounts:
+            - name: kb-docs
+              mountPath: /data/kb_docs
           resources:
             requests:
               memory: "512Mi"
@@ -29,3 +37,7 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
+      volumes:
+        - name: kb-docs
+          persistentVolumeClaim:
+            claimName: workshop-app-kb-docs
