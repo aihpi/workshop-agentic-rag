@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: workshop
+  namespace: argocd
+spec:
+  description: Workshop Agentic RAG — Chainlit app, Postgres, Qdrant
+  sourceRepos:
+    - https://github.com/aihpi/workshop-agentic-rag.git
+  destinations:
+    - namespace: workshop-agentic-rag
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespacedResourceWhitelist:
+    - group: ""
+      kind: "*"
+    - group: apps
+      kind: "*"
+    - group: networking.k8s.io
+      kind: "*"
+    - group: bitnami.com
+      kind: SealedSecret

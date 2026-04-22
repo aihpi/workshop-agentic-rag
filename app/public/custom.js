@@ -2,6 +2,7 @@
   const HINT_ID = "export-all-welcome-hint";
   const MODAL_ID = "settings-modal-overlay";
   const TERMS_MODAL_ID = "terms-modal-overlay";
+  const LEGAL_FOOTER_ID = "legal-footer";
   const SETTINGS_URL = "/settings/app";
   const ADMIN_URL = "/admin/app";
   const IFRAME_URLS = [SETTINGS_URL, ADMIN_URL];
@@ -340,6 +341,58 @@
     return input.parentElement;
   }
 
+  function findDisclaimerAnchor() {
+    // Chainlit's "LLMs can make mistakes…" (or translated / "Built with Chainlit") — a small
+    // caption element near the composer. Scope the search to composer ancestors for speed.
+    const composer = findComposerAnchor();
+    if (!composer) return null;
+    const patterns = [
+      /^LLMs can make mistakes/i,
+      /Check important info/i,
+      /LLMs k(ö|oe)nnen Fehler machen/i,
+      /Built with Chainlit/i,
+    ];
+    let scope = composer.parentNode;
+    for (let i = 0; i < 5 && scope; i++, scope = scope.parentNode) {
+      const els = scope.querySelectorAll("p, small, span, div");
+      for (let j = 0; j < els.length; j++) {
+        const el = els[j];
+        if (el.children.length > 0) continue;
+        const t = (el.textContent || "").trim();
+        if (!t || t.length > 200) continue;
+        for (let k = 0; k < patterns.length; k++) {
+          if (patterns[k].test(t)) return el;
+        }
+      }
+    }
+    return null;
+  }
+
+  function ensureLegalFooter() {
+    let footer = document.getElementById(LEGAL_FOOTER_ID);
+    if (!footer) {
+      footer = document.createElement("div");
+      footer.id = LEGAL_FOOTER_ID;
+      footer.className = "legal-footer";
+      footer.innerHTML =
+        '<a href="https://aisc.hpi.de/portal/cfp/pages/imprint/" target="_blank" rel="noopener noreferrer">Impressum</a>' +
+        '<span class="legal-footer-sep" aria-hidden="true"> · </span>' +
+        '<a href="https://aisc.hpi.de/portal/cfp/pages/privacy/" target="_blank" rel="noopener noreferrer">Datenschutz</a>';
+    }
+    const disclaimer = findDisclaimerAnchor();
+    if (disclaimer && disclaimer.parentNode) {
+      // Place immediately after the Chainlit disclaimer so it sits at the very bottom of the chat column.
+      if (disclaimer.nextSibling !== footer) {
+        disclaimer.parentNode.insertBefore(footer, disclaimer.nextSibling);
+      }
+      return;
+    }
+    // Fallback for /login and any screen without a disclaimer — pin to body.
+    if (footer.parentNode !== document.body) {
+      document.body.appendChild(footer);
+    }
+  }
+
   function ensureHint() {
     const anchor = findComposerAnchor();
     if (!anchor || !anchor.parentNode) return;
@@ -363,6 +416,7 @@
 
   const observer = new MutationObserver(function () {
     ensureHint();
+    ensureLegalFooter();
     interceptSettingsLinks();
     hideAdminLinksIfNotAdmin();
   });
@@ -370,11 +424,13 @@
 
   window.addEventListener("load", function () {
     ensureHint();
+    ensureLegalFooter();
     interceptSettingsLinks();
     fetchRole().then(hideAdminLinksIfNotAdmin);
     loadAndMaybeShowTerms();
   });
   ensureHint();
+  ensureLegalFooter();
   interceptSettingsLinks();
   fetchRole().then(hideAdminLinksIfNotAdmin);
   loadAndMaybeShowTerms();
