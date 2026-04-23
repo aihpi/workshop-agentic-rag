@@ -5,10 +5,12 @@ Used by the per-user FastAPI upload endpoint (app/api/api_routes.py).
 
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable
 
+import httpx
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -19,11 +21,14 @@ from core.llm import embed
 from core.settings import (
     CHUNK_MAX_CHARS,
     CHUNK_OVERLAP,
+    DOCLING_SERVICE_URL,
     EMBED_BATCH_SIZE,
     EMBED_MAX_BATCH_CHARS,
     QDRANT_API_KEY,
     QDRANT_URL,
 )
+
+logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[int, int], Awaitable[None]]
 SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
@@ -208,7 +213,53 @@ def _sections_from_pages(document: Any, file_name: str) -> list[dict[str, Any]]:
     return sections
 
 
+def _parse_pdf_remote(path: Path, service_url: str) -> list[dict[str, Any]] | None:
+    """POST the PDF to the GPU Docling service. Returns None on any failure
+    (connection refused, timeout, non-2xx, malformed response) so the caller
+    can fall back to local parsing. This is what makes scale-to-zero work:
+    kubectl scale --replicas=0 → next upload gets a connect error in ~2s
+    → local Docling takes over."""
+    try:
+        with open(path, "rb") as fh:
+            files = {"file": (path.name, fh, "application/pdf")}
+            resp = httpx.post(
+                f"{service_url}/process",
+                files=files,
+                # Connect timeout short so scale-to-zero flips fast.
+                # Read timeout generous for worst-case GPU parse on a big PDF.
+                timeout=httpx.Timeout(connect=2.0, read=180.0, write=30.0, pool=5.0),
+            )
+    except (httpx.ConnectError, httpx.TimeoutException, OSError) as exc:
+        logger.warning("docling.fallback service_url=%s reason=%s", service_url, type(exc).__name__)
+        return None
+
+    if resp.status_code >= 500:
+        logger.warning("docling.fallback service_url=%s status=%d", service_url, resp.status_code)
+        return None
+    if resp.status_code != 200:
+        # 4xx is a real error (bad request, unsupported format) — surface it.
+        resp.raise_for_status()
+
+    try:
+        sections = resp.json().get("sections")
+    except ValueError:
+        logger.warning("docling.fallback service_url=%s reason=bad_json", service_url)
+        return None
+
+    if not isinstance(sections, list):
+        logger.warning("docling.fallback service_url=%s reason=missing_sections", service_url)
+        return None
+    logger.info("docling.remote_ok service_url=%s sections=%d", service_url, len(sections))
+    return sections
+
+
 def parse_pdf(path: Path) -> list[dict[str, Any]]:
+    if DOCLING_SERVICE_URL:
+        remote_sections = _parse_pdf_remote(path, DOCLING_SERVICE_URL)
+        if remote_sections is not None:
+            return remote_sections
+        # Fall through to local parsing on remote failure.
+
     pdf_opts = PdfPipelineOptions(do_ocr=False)
     converter = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_opts)},

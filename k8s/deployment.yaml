@@ -27,6 +27,8 @@ spec:
               value: /data/kb_docs
             - name: DATA_RAW_DIR
               value: /data/data_raw
+            - name: DOCLING_SERVICE_URL
+              value: http://docling-service.workshop-agentic-rag.svc:8080
           envFrom:
             - secretRef:
                 name: workshop-app-secrets
