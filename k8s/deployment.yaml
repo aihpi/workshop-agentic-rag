@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/aihpi/workshop-agentic-rag:sha-215b4ab
+          image: ghcr.io/aihpi/workshop-agentic-rag:sha-c329cf3
           ports:
             - containerPort: 8000
           env:
