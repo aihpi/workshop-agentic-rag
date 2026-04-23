@@ -2,6 +2,7 @@ name: Build and Push App Image
 
 env:
   APP_IMAGE: ghcr.io/aihpi/workshop-agentic-rag
+  DOCLING_IMAGE: ghcr.io/aihpi/workshop-agentic-rag-docling
 
 on:
   push:
@@ -42,7 +43,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: meta
+      - id: meta_cpu
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.APP_IMAGE }}
@@ -50,42 +51,72 @@ jobs:
             type=raw,value=latest
             type=sha,format=short,prefix=sha-
 
-      - name: Build and push (linux/amd64)
+      - name: Build and push CPU image (workshop-app)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            TORCH_FLAVOR=cpu
+          tags: ${{ steps.meta_cpu.outputs.tags }}
+          labels: ${{ steps.meta_cpu.outputs.labels }}
+          cache-from: type=gha,scope=cpu
+          cache-to: type=gha,mode=max,scope=cpu
+
+      - id: meta_gpu
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCLING_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short,prefix=sha-
+
+      - name: Build and push GPU image (docling-service)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            TORCH_FLAVOR=cuda
+          tags: ${{ steps.meta_gpu.outputs.tags }}
+          labels: ${{ steps.meta_gpu.outputs.labels }}
+          cache-from: type=gha,scope=gpu
+          cache-to: type=gha,mode=max,scope=gpu
 
       - id: bump
-        name: Update Kubernetes manifest
+        name: Update Kubernetes manifests (both image tags)
         run: |
-          NEW_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[] | select(contains("sha-"))' | cut -d':' -f2)
-          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          CPU_TAG=$(echo '${{ steps.meta_cpu.outputs.json }}' | jq -r '.tags[] | select(contains("sha-"))' | cut -d':' -f2)
+          GPU_TAG=$(echo '${{ steps.meta_gpu.outputs.json }}' | jq -r '.tags[] | select(contains("sha-"))' | cut -d':' -f2)
+          echo "cpu_tag=$CPU_TAG" >> "$GITHUB_OUTPUT"
+          echo "gpu_tag=$GPU_TAG" >> "$GITHUB_OUTPUT"
 
-          TARGET_FILE="k8s/deployment.yaml"
-          if [ ! -f "$TARGET_FILE" ]; then
-            echo "ERROR: $TARGET_FILE not found."
+          if [ ! -f k8s/deployment.yaml ] || [ ! -f k8s/docling-service.yaml ]; then
+            echo "ERROR: expected manifests missing."
             exit 1
           fi
-          echo "Pinning $TARGET_FILE to ${APP_IMAGE}:${NEW_TAG}"
-          sed -i "s|image: ${APP_IMAGE}:.*|image: ${APP_IMAGE}:${NEW_TAG}|g" "$TARGET_FILE"
+
+          echo "Pinning workshop-app → ${APP_IMAGE}:${CPU_TAG}"
+          sed -i "s|image: ${APP_IMAGE}:.*|image: ${APP_IMAGE}:${CPU_TAG}|g" k8s/deployment.yaml
+
+          echo "Pinning docling-service → ${DOCLING_IMAGE}:${GPU_TAG}"
+          sed -i "s|image: ${DOCLING_IMAGE}:.*|image: ${DOCLING_IMAGE}:${GPU_TAG}|g" k8s/docling-service.yaml
 
       - name: Commit manifest bump
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          TAG_NAME="${{ steps.bump.outputs.tag }}"
-          if git diff --exit-code k8s/deployment.yaml; then
+          CPU_TAG="${{ steps.bump.outputs.cpu_tag }}"
+          GPU_TAG="${{ steps.bump.outputs.gpu_tag }}"
+          if git diff --exit-code k8s/deployment.yaml k8s/docling-service.yaml; then
             echo "No manifest change. Skipping commit."
           else
-            git add k8s/deployment.yaml
-            git commit -m "chore: bump app image to ${TAG_NAME} [skip ci]"
+            git add k8s/deployment.yaml k8s/docling-service.yaml
+            git commit -m "chore: bump images app=${CPU_TAG} docling=${GPU_TAG} [skip ci]"
             git push origin main
           fi
