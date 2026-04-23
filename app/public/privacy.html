@@ -255,11 +255,40 @@
        LLM-Inferenz erfolgt auf HPI-Infrastruktur am Standort Potsdam.</p>
     <p>Ein Training der Modelle auf Nutzerdaten findet nicht statt.</p>
 
+    <h3>5.3 Authentifizierung über GitHub (optional)</h3>
+    <p>Alternativ zur HPI-internen Anmeldung mit Benutzername und Passwort
+       bietet die Anwendung eine Anmeldung über GitHub (GitHub, Inc.,
+       88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA) an.
+       Bei Nutzung dieser Option werden folgende Daten zwischen Ihrem
+       Browser, GitHub und raglab ausgetauscht:</p>
+    <ul>
+      <li>Beim Klick auf „Sign in with GitHub“ wird Ihr Browser zur
+          GitHub-Authentifizierungsseite weitergeleitet; GitHub erhält
+          dabei Ihre IP-Adresse, User-Agent und den Referrer.</li>
+      <li>Nach erfolgreicher Anmeldung übermittelt GitHub an raglab
+          Ihre GitHub-Benutzer-ID, Ihren GitHub-Benutzernamen und Ihre
+          primäre E-Mail-Adresse.</li>
+      <li>Diese Angaben werden in unserer Postgres-Datenbank zur
+          Kontoverwaltung gespeichert.</li>
+    </ul>
+    <p>Die Nutzung von GitHub OAuth ist <strong>freiwillig</strong>.
+       Eine vollständig HPI-interne Anmeldung mit Benutzername und
+       Passwort bleibt jederzeit alternativ möglich.</p>
+
     <h2>6. Drittlandstransfer</h2>
-    <p>Es findet <strong>kein Drittlandstransfer</strong> statt.
-       Sämtliche Verarbeitung — einschließlich der LLM-Anfragen —
-       erfolgt ausschließlich auf HPI-Infrastruktur am Standort Potsdam
-       (Bundesrepublik Deutschland / EWR).</p>
+    <p>Ein Drittlandstransfer erfolgt <strong>ausschließlich</strong>
+       im Rahmen der optionalen GitHub-Authentifizierung (siehe 5.3).
+       GitHub, Inc. hat seinen Sitz in den USA. Der Datentransfer für
+       den Authentifizierungsschritt erfolgt auf Grundlage der
+       Standardvertragsklauseln der Europäischen Kommission gemäß
+       Art. 46 Abs. 2 lit. c) DSGVO, welche GitHub/Microsoft für seine
+       Dienste etabliert hat. Eine Angemessenheitsentscheidung nach
+       Art. 45 DSGVO liegt für die USA derzeit nicht vor; GitHub ist
+       jedoch nach dem EU-US Data Privacy Framework zertifiziert.</p>
+    <p>Die eigentliche Dienstverarbeitung — Chat-Inhalte, hochgeladene
+       Dokumente, Vektor-Embeddings und LLM-Inferenz — findet
+       <strong>ausschließlich auf HPI-Infrastruktur am Standort Potsdam
+       (Bundesrepublik Deutschland / EWR)</strong> statt.</p>
     <p>Gleichwohl empfehlen wir, <strong>keine besonders schützenswerten
        Daten</strong> (Gesundheits-, Finanz-, Sozialdaten im Sinne von
        Art. 9 DSGVO) in die Anwendung hochzuladen oder in Chat-Nachrichten
@@ -423,10 +452,39 @@
        infrastructure in Potsdam, Germany.</p>
     <p>No training of the models on user data takes place.</p>
 
+    <h3>5.3 Authentication via GitHub (optional)</h3>
+    <p>As an alternative to HPI's internal username/password login, the
+       application offers sign-in via GitHub (GitHub, Inc.,
+       88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA).
+       When you use this option, the following data is exchanged between
+       your browser, GitHub, and raglab:</p>
+    <ul>
+      <li>On clicking “Sign in with GitHub”, your browser is redirected
+          to GitHub's authentication page. GitHub receives your IP
+          address, user-agent, and referrer.</li>
+      <li>After successful authentication, GitHub transmits your GitHub
+          user ID, GitHub username, and primary email address to raglab.</li>
+      <li>These values are stored in our Postgres database for account
+          management.</li>
+    </ul>
+    <p>GitHub OAuth is <strong>optional</strong>. A fully HPI-internal
+       login via username and password remains available as an
+       alternative at all times.</p>
+
     <h2>6. International data transfers</h2>
-    <p><strong>No transfers to third countries take place.</strong>
-       All processing — including LLM inference — happens exclusively
-       on HPI infrastructure in Potsdam, Germany (EEA).</p>
+    <p>A third-country transfer occurs <strong>only</strong> in the
+       context of the optional GitHub authentication (see Section 5.3).
+       GitHub, Inc. is based in the USA. Data transfer for the
+       authentication step is covered by the European Commission's
+       Standard Contractual Clauses pursuant to Art. 46(2)(c) GDPR,
+       as established by GitHub/Microsoft for their services. No
+       adequacy decision under Art. 45 GDPR currently exists for the
+       United States; however, GitHub is certified under the EU–US
+       Data Privacy Framework.</p>
+    <p>The service's actual processing — chat content, uploaded documents,
+       vector embeddings, and LLM inference — takes place
+       <strong>exclusively on HPI infrastructure in Potsdam, Germany
+       (EEA)</strong>.</p>
     <p>That said, we recommend <strong>not uploading or transmitting
        special categories of data</strong> (health, financial, social
        data within the meaning of Art. 9 GDPR) into the application,
