@@ -12,6 +12,7 @@ dependencies = [
     "openai-harmony>=0.0.1",
     "docling>=1.5.0",
     "bcrypt>=4.1.0",
+    "httpx>=0.27.0",
 ]
 
 [tool.setuptools]

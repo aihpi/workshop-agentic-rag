@@ -4,14 +4,14 @@
 #   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=1
 #   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=0
 #
-# TODO (see FUTURE_WORK.md "GPU Docling service"):
-#   - Write app/docling_service.py — a tiny FastAPI wrapper around
-#     docling.DocumentConverter exposing POST /process (multipart PDF in,
-#     JSON out). Until that exists, this Deployment's container will
-#     CrashLoopBackOff on scale-up because uvicorn has nothing to serve.
+# When replicas=0, the main app pod's upload path falls back to local
+# CPU Docling (see app/kb/ingestion_pipeline.py::_parse_pdf_remote). So
+# scaling this Deployment is the only toggle — no env changes.
+#
+# Remaining work (see FUTURE_WORK.md "GPU Docling service"):
 #   - Split into its own smaller image once CUDA is stripped from the
-#     main app image.
-#   - Automate scale-up/down (cron + RBAC, or app-driven via k8s API).
+#     main app image. Right now this reuses the 6 GB app image.
+#   - Automate scale-up/down (cron or app-driven via k8s API).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,14 +30,16 @@ spec:
       labels:
         app: docling-service
     spec:
-      # Uncomment when your cluster labels GPU nodes. NVIDIA GPU Operator
-      # typically adds nvidia.com/gpu.present=true; adjust to match.
-      # nodeSelector:
-      #   nvidia.com/gpu.present: "true"
-      # tolerations:
-      #   - key: nvidia.com/gpu
-      #     operator: Exists
-      #     effect: NoSchedule
+      # GPU node scheduling. NVIDIA GPU Operator advertises
+      # nvidia.com/gpu.present on GPU nodes; adjust label if your cluster
+      # uses a different convention. Taint toleration lets us land on
+      # nodes that other (non-GPU) workloads are kept off.
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: docling
           image: ghcr.io/aihpi/workshop-agentic-rag:latest

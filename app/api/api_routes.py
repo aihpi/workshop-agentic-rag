@@ -7,6 +7,7 @@ Registered by `register_user_api_routes()` from inside the Chainlit
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 import tempfile
@@ -286,9 +287,11 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
 
         try:
             # Stage 1 — Docling parse. CPU-heavy; on OOM/timeout this is where it dies.
+            # Wrapped in asyncio.to_thread so it doesn't block the event loop —
+            # otherwise a single upload freezes chat streaming for all users.
             t0 = time.monotonic()
             try:
-                sections = parse_file(tmp_path)
+                sections = await asyncio.to_thread(parse_file, tmp_path)
             except Exception:
                 logger.exception(
                     "upload.parse_failed kb_id=%s filename=%s size=%d elapsed=%.1fs",
