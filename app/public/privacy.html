@@ -146,18 +146,6 @@
 
 <main class="container">
 
-  <!-- DRAFT BANNER: remove once placeholders are filled in. -->
-  <section class="draft-banner" id="draft-banner" aria-label="Hinweis">
-    <strong>Entwurf / Draft.</strong> Diese Datenschutzerklärung enthält
-    Platzhalter, die vor der Freigabe durch den HPI-Datenschutzbeauftragten
-    ausgefüllt werden müssen:
-    <ul>
-      <li>Genauer Workshop-Zeitraum und Aufbewahrungsfrist</li>
-      <li>Name des verantwortlichen Professors / der Professorin</li>
-    </ul>
-    Vor Veröffentlichung diesen Block sowie alle
-    <span class="placeholder">so markierten Stellen</span> entfernen.
-  </section>
 
   <!-- ============================================================= -->
   <!-- DEUTSCHE VERSION                                               -->
@@ -199,17 +187,24 @@
        Fragen zum IT-Grundschutz stellen und eigene Dokumente (z. B. PDFs)
        für eine persönliche Wissensdatenbank hochladen, welche die
        Antworten mit Quellenangaben anreichert.</p>
-    <p>Die Anwendung wird im Rahmen eines Workshops des
-       KI-Servicezentrums Berlin-Brandenburg am
-       <span class="placeholder">27.04.2026 (ca. 20–30 Teilnehmende)</span>
-       sowie zu Forschungs- und Demonstrationszwecken bereitgestellt.</p>
+    <p>Die Anwendung wird im Rahmen von Workshops des KI-Servicezentrums
+       Berlin-Brandenburg sowie zu Forschungs- und Demonstrationszwecken
+       bereitgestellt.</p>
 
     <h2>3. Rechtsgrundlage</h2>
-    <p>Rechtsgrundlage für die Verarbeitung ist
+    <p>Die Verarbeitung personenbezogener Daten erfolgt auf folgenden
+       Rechtsgrundlagen:</p>
+    <p>Für die Nutzung der RAG-Funktionalität (Chat-Anfragen,
+       Dokumenten-Upload, Vektor-Embeddings) ist die Rechtsgrundlage
        Art. 6 Abs. 1 lit. a) DSGVO (Einwilligung). Die Einwilligung wird
        beim erstmaligen Login durch Bestätigung der Nutzungsbedingungen
        erteilt und kann jederzeit mit Wirkung für die Zukunft widerrufen
        werden (siehe Abschnitt 9).</p>
+    <p>Für die Erhebung technischer Server-Logs (IP-Adresse, User-Agent,
+       Zeitstempel) ist die Rechtsgrundlage Art. 6 Abs. 1 lit. f) DSGVO
+       (berechtigtes Interesse). Das berechtigte Interesse liegt in der
+       Gewährleistung der Betriebssicherheit, Fehleranalyse und dem
+       Schutz vor Missbrauch.</p>
 
     <h2>4. Kategorien verarbeiteter Daten</h2>
     <p>Wir verarbeiten folgende Kategorien personenbezogener Daten:</p>
@@ -278,13 +273,15 @@
     <h2>6. Drittlandstransfer</h2>
     <p>Ein Drittlandstransfer erfolgt <strong>ausschließlich</strong>
        im Rahmen der optionalen GitHub-Authentifizierung (siehe 5.3).
-       GitHub, Inc. hat seinen Sitz in den USA. Der Datentransfer für
-       den Authentifizierungsschritt erfolgt auf Grundlage der
-       Standardvertragsklauseln der Europäischen Kommission gemäß
-       Art. 46 Abs. 2 lit. c) DSGVO, welche GitHub/Microsoft für seine
-       Dienste etabliert hat. Eine Angemessenheitsentscheidung nach
-       Art. 45 DSGVO liegt für die USA derzeit nicht vor; GitHub ist
-       jedoch nach dem EU-US Data Privacy Framework zertifiziert.</p>
+       GitHub, Inc. hat seinen Sitz in den USA. GitHub bzw. Microsoft
+       ist nach dem EU-US Data Privacy Framework (DPF) zertifiziert,
+       für welches die Europäische Kommission am 10. Juli 2023 einen
+       Angemessenheitsbeschluss gemäß Art. 45 DSGVO erlassen hat. Der
+       Datentransfer im Rahmen der Authentifizierung stützt sich primär
+       auf diesen Angemessenheitsbeschluss. Ergänzend hat
+       GitHub/Microsoft Standardvertragsklauseln gemäß
+       Art. 46 Abs. 2 lit. c) DSGVO als zusätzliche Absicherung
+       etabliert.</p>
     <p>Die eigentliche Dienstverarbeitung — Chat-Inhalte, hochgeladene
        Dokumente, Vektor-Embeddings und LLM-Inferenz — findet
        <strong>ausschließlich auf HPI-Infrastruktur am Standort Potsdam
@@ -296,12 +293,16 @@
        Demonstrations-Umgebung handelt.</p>
 
     <h2>7. Speicherdauer</h2>
+    <p>Nutzerkonten, hochgeladene Dokumente, Chat-Verlauf und
+       Vektor-Embeddings werden für die Dauer der jeweiligen
+       Workshop-Veranstaltung sowie bis zu 30 Tage nach deren Abschluss
+       gespeichert. Anschließend werden alle teilnehmerspezifischen
+       Daten vollständig gelöscht. Sofern die Anwendung außerhalb eines
+       konkreten Workshops zu Forschungs- oder Demonstrationszwecken
+       genutzt wird, beträgt die maximale Aufbewahrungsfrist 90 Tage ab
+       der letzten Nutzung, sofern der Nutzer seine Daten nicht vorher
+       eigenständig löscht.</p>
     <ul>
-      <li><strong>Nutzerkonten, hochgeladene Dokumente, Chat-Verlauf,
-          Vektor-Embeddings:</strong> für die Dauer des Workshops sowie
-          bis zu
-          <span class="placeholder">30 Tage</span> danach. Anschließend
-          werden alle demo-spezifischen Daten vollständig gelöscht.</li>
       <li><strong>Eigenständige Löschung:</strong> Nutzer können ihre
           eigenen Dokumente und Wissensdatenbanken jederzeit innerhalb der
           Anwendung löschen.</li>
@@ -345,7 +346,11 @@
 
     <h2>11. Beschwerderecht</h2>
     <p>Unbeschadet anderweitiger Rechtsbehelfe haben Sie das Recht,
-       sich bei einer Aufsichtsbehörde zu beschweren. Zuständig ist:</p>
+       sich bei einer Aufsichtsbehörde zu beschweren (Art. 77 DSGVO),
+       insbesondere in dem Mitgliedstaat Ihres gewöhnlichen
+       Aufenthaltsorts, Ihres Arbeitsplatzes oder des Orts des
+       mutmaßlichen Verstoßes. Die für das HPI zuständige
+       Aufsichtsbehörde ist:</p>
     <address>
       Die Landesbeauftragte für den Datenschutz und für das Recht auf
       Akteneinsicht Brandenburg<br />
@@ -401,15 +406,23 @@
        natural-language questions about IT baseline protection and upload
        their own documents (typically PDFs) to a personal knowledge base
        which augments the answers with source citations.</p>
-    <p>The application is operated as part of an AI Service Centre
-       Berlin-Brandenburg workshop on
-       <span class="placeholder">2026-04-27 (approx. 20–30 participants)</span>
-       and for research / demonstration purposes.</p>
+    <p>The application is operated in the context of workshops of the
+       AI Service Centre Berlin-Brandenburg and for research and
+       demonstration purposes.</p>
 
     <h2>3. Legal basis</h2>
-    <p>Processing is based on Art. 6(1)(a) GDPR (consent). Consent is
-       given at first login by accepting the Terms of Use and may be
-       withdrawn at any time with effect for the future (see Section 9).</p>
+    <p>Processing of personal data is based on the following legal
+       grounds:</p>
+    <p>For the use of RAG functionality (chat queries, document upload,
+       vector embeddings), the legal basis is Art. 6(1)(a) GDPR
+       (consent). Consent is given at first login by accepting the Terms
+       of Use and may be withdrawn at any time with effect for the future
+       (see Section 9).</p>
+    <p>For the collection of technical server logs (IP address,
+       user-agent, timestamps), the legal basis is Art. 6(1)(f) GDPR
+       (legitimate interest). The legitimate interest lies in ensuring
+       operational security, error analysis, and protection against
+       abuse.</p>
 
     <h2>4. Categories of processed data</h2>
     <p>We process the following categories of personal data:</p>
@@ -472,15 +485,16 @@
        alternative at all times.</p>
 
     <h2>6. International data transfers</h2>
-    <p>A third-country transfer occurs <strong>only</strong> in the
-       context of the optional GitHub authentication (see Section 5.3).
-       GitHub, Inc. is based in the USA. Data transfer for the
-       authentication step is covered by the European Commission's
-       Standard Contractual Clauses pursuant to Art. 46(2)(c) GDPR,
-       as established by GitHub/Microsoft for their services. No
-       adequacy decision under Art. 45 GDPR currently exists for the
-       United States; however, GitHub is certified under the EU–US
-       Data Privacy Framework.</p>
+    <p>A third-country transfer occurs <strong>exclusively</strong> in
+       the context of the optional GitHub authentication (see
+       Section 5.3). GitHub, Inc. is based in the USA. GitHub /
+       Microsoft is certified under the EU–US Data Privacy Framework
+       (DPF), for which the European Commission issued an adequacy
+       decision under Art. 45 GDPR on 10 July 2023. The data transfer
+       for the authentication step primarily relies on this adequacy
+       decision. As an additional safeguard, GitHub/Microsoft has
+       established Standard Contractual Clauses pursuant to
+       Art. 46(2)(c) GDPR.</p>
     <p>The service's actual processing — chat content, uploaded documents,
        vector embeddings, and LLM inference — takes place
        <strong>exclusively on HPI infrastructure in Potsdam, Germany
@@ -491,11 +505,15 @@
        as this is a research / demonstration environment.</p>
 
     <h2>7. Retention period</h2>
+    <p>User accounts, uploaded documents, chat history and vector
+       embeddings are retained for the duration of the respective
+       workshop and up to 30 days after its completion. All
+       participant-specific data is then fully deleted. When the
+       application is used outside of a specific workshop for research
+       or demonstration purposes, the maximum retention period is
+       90 days from the last use, unless the user deletes their data
+       earlier via the application.</p>
     <ul>
-      <li><strong>User accounts, uploaded documents, chat history, vector
-          embeddings:</strong> for the duration of the workshop and up to
-          <span class="placeholder">30 days</span> thereafter. All
-          demo-specific data is then fully deleted.</li>
       <li><strong>Self-service deletion:</strong> users may delete their
           own documents and knowledge bases at any time via the application.</li>
       <li><strong>Server logs:</strong> kept per HPI standard (typically
@@ -534,7 +552,10 @@
 
     <h2>11. Right to lodge a complaint</h2>
     <p>Without prejudice to other remedies, you have the right to lodge a
-       complaint with a supervisory authority. The competent authority is:</p>
+       complaint with a supervisory authority (Art. 77 GDPR), in
+       particular in the Member State of your habitual residence, place
+       of work, or place of the alleged infringement. The supervisory
+       authority responsible for HPI is:</p>
     <address>
       Die Landesbeauftragte für den Datenschutz und für das Recht auf
       Akteneinsicht Brandenburg<br />
