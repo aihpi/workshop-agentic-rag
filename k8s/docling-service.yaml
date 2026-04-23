@@ -30,11 +30,12 @@ spec:
       labels:
         app: docling-service
     spec:
-      # GPU node scheduling. NVIDIA GPU Operator advertises
-      # nvidia.com/gpu.present on GPU nodes; adjust label if your cluster
-      # uses a different convention. Taint toleration lets us land on
-      # nodes that other (non-GPU) workloads are kept off.
+      # GPU node scheduling. `accelerator=a30` pins this to A30 nodes
+      # specifically (cluster has mixed A30/A100/other). nvidia.com/gpu.present
+      # is belt-and-braces in case the A30 label gets removed.
+      # Taint toleration lets us land on GPU-tainted nodes.
       nodeSelector:
+        accelerator: a30
         nvidia.com/gpu.present: "true"
       tolerations:
         - key: nvidia.com/gpu
@@ -42,7 +43,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: docling
-          image: ghcr.io/aihpi/workshop-agentic-rag:latest
+          image: ghcr.io/aihpi/workshop-agentic-rag-docling:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "uvicorn"]
           args:
