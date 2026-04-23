@@ -43,6 +43,7 @@ from chat.native_chat import (
 import bcrypt
 from api.prompt_generator import generate_starters, generate_system_prompt
 from core.settings import (
+    CHAINLIT_AUTH_USERNAME,
     CHAT_DB_PATH,
     DATA_KB_DOCS_DIR,
     DATABASE_URL,
@@ -599,9 +600,27 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             "postgres": pg_counts,
         }
 
+    def _is_env_admin(identifier: str) -> bool:
+        """True if this identifier is the env-admin whose credentials come
+        from CHAINLIT_AUTH_USERNAME/PASSWORD. Deleting that user is pointless
+        because the auth callback's fallback re-creates it on the next login,
+        and the re-created row has no accepted-terms / KBs, which just
+        confuses the operator."""
+        return bool(CHAINLIT_AUTH_USERNAME) and identifier == CHAINLIT_AUTH_USERNAME
+
     @fastapi_app.delete("/api/me")
     async def delete_own_account(current_user=Depends(get_current_user)):
         identifier = _user_id(current_user)
+        if _is_env_admin(identifier):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Das Umgebungs-Admin-Konto kann nicht gelöscht werden — "
+                    "es würde beim nächsten Login automatisch neu angelegt. "
+                    "Zum Testen der Löschfunktion bitte einen regulären "
+                    "Benutzer im Admin-Bereich anlegen und damit testen."
+                ),
+            )
         result = await _hard_delete_user(identifier)
         return {"deleted": True, **result}
 
@@ -619,6 +638,14 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             raise HTTPException(
                 status_code=400,
                 detail="Zum Löschen des eigenen Kontos bitte /api/me verwenden.",
+            )
+        if _is_env_admin(target["identifier"]):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Das Umgebungs-Admin-Konto kann nicht gelöscht werden — "
+                    "es würde beim nächsten Login automatisch neu angelegt."
+                ),
             )
         result = await _hard_delete_user(target["identifier"])
         return {"deleted": True, **result}
