@@ -2591,6 +2591,13 @@ async def on_app_startup() -> None:
         from fastapi import Cookie
         from chainlit.auth import authenticate_user as _auth_user
 
+        @chainlit_fastapi_app.get("/health")
+        async def health_check():
+            """Lightweight liveness/readiness probe. Unauthenticated on purpose:
+            kubelet has no Chainlit session cookie. Returns 200 as soon as the
+            ASGI app is serving HTTP — enough to gate Service traffic on."""
+            return {"status": "ok"}
+
         @chainlit_fastapi_app.get("/settings/app")
         async def serve_settings_page(access_token: str | None = Cookie(default=None)):
             if not access_token:
@@ -2619,6 +2626,7 @@ async def on_app_startup() -> None:
 
         for path in user_routes:
             _ensure_route_precedes_catch_all(chainlit_fastapi_app, path)
+        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/health")
         _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/settings/app")
         _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/admin/app")
 

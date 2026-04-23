@@ -42,6 +42,37 @@ spec:
             limits:
               memory: "16Gi"
               cpu: "4000m"
+          # Startup: generous window for Chainlit + DB migrations + first
+          # request through the import chain. 30 × 5s = 150s before
+          # liveness starts ticking.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 5
+          # Readiness: gates Service traffic. With strategy=Recreate the
+          # old pod is gone before this runs, so "not ready" just means
+          # clients get connection refused until /health returns 200 —
+          # preferable to routing to a half-started Chainlit.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Liveness: restart if the ASGI loop goes zombie. Loose enough
+          # to tolerate a long user upload (Docling can block the
+          # thread-pool worker but the event loop stays free, so /health
+          # still answers quickly).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
       volumes:
         - name: kb-docs
           persistentVolumeClaim:
