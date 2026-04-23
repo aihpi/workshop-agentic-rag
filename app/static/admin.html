@@ -94,6 +94,14 @@
   button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
   button + button { margin-left: 6px; }
   button:disabled { opacity: 0.5; cursor: default; }
+  input[type=text], select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: inherit;
+  }
   .pill {
     display: inline-block;
     font-size: 11px;
@@ -117,9 +125,24 @@
   <h1>Benutzer</h1>
 </header>
 <main>
+  <section id="create-section" style="margin-bottom: 24px;">
+    <h2>Neuer Nutzer</h2>
+    <div class="sub">Benutzername und Einmal-Passwort für einen HPI-internen Zugang anlegen. Der Nutzer kann sich direkt mit diesen Daten anmelden.</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 120px auto; gap: 10px; align-items: center;">
+      <input type="text" id="new-identifier" placeholder="Benutzername" autocomplete="off" />
+      <input type="text" id="new-password" placeholder="Einmal-Passwort (min. 8 Zeichen)" autocomplete="off" />
+      <select id="new-role">
+        <option value="user" selected>User</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button id="create-btn">Anlegen</button>
+    </div>
+    <div id="create-status" class="status"></div>
+  </section>
+
   <section>
     <h2>Registrierte Benutzer</h2>
-    <div class="sub">Zugriff freigeben oder sperren, Rollen verwalten. Änderungen greifen ab dem nächsten Login des Benutzers.</div>
+    <div class="sub">Zugriff freigeben oder sperren, Rollen verwalten, Konten löschen. Löschung entfernt alle Daten des Nutzers unwiderruflich (Wissensdatenbanken, Chat-Verläufe, hochgeladene Dokumente).</div>
     <table>
       <thead>
         <tr>
@@ -237,6 +260,9 @@
         actions.appendChild(btn("Zum Admin machen", "secondary", () =>
           patchUser(u.id, { role: "admin" })));
       }
+      if (!isSelf) {
+        actions.appendChild(btn("Löschen", "danger", () => deleteUser(u)));
+      }
       tbody.appendChild(row);
     }
   };
@@ -270,6 +296,63 @@
     setStatus("Aktualisiert.", "ok");
     await reload();
   };
+
+  const deleteUser = async (user) => {
+    const ok = window.confirm(
+      `Benutzer "${user.identifier}" wirklich löschen?\n\n` +
+      `Alle Daten (Wissensdatenbanken, hochgeladene Dokumente, Chat-Verläufe, ` +
+      `Einstellungen) werden unwiderruflich entfernt.`
+    );
+    if (!ok) return;
+    await api(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+      method: "DELETE",
+    });
+    setStatus(`"${user.identifier}" gelöscht.`, "ok");
+    await reload();
+  };
+
+  // ---------------- Create user ----------------
+
+  const createStatus = document.getElementById("create-status");
+  const setCreateStatus = (text, kind = "") => {
+    createStatus.className = `status ${kind}`;
+    createStatus.textContent = text;
+  };
+
+  document.getElementById("create-btn").addEventListener("click", async () => {
+    const identifier = document.getElementById("new-identifier").value.trim();
+    const password = document.getElementById("new-password").value;
+    const role = document.getElementById("new-role").value;
+    if (!identifier) {
+      setCreateStatus("Benutzername erforderlich.", "err");
+      return;
+    }
+    if (password.length < 8) {
+      setCreateStatus("Passwort muss mindestens 8 Zeichen haben.", "err");
+      return;
+    }
+    const btnEl = document.getElementById("create-btn");
+    btnEl.disabled = true;
+    setCreateStatus("Lege Konto an…", "");
+    try {
+      await api("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({ identifier, password, role }),
+      });
+      setCreateStatus(
+        `"${identifier}" angelegt. Einmal-Passwort an den Nutzer weitergeben.`,
+        "ok"
+      );
+      document.getElementById("new-identifier").value = "";
+      document.getElementById("new-password").value = "";
+      document.getElementById("new-role").value = "user";
+      await reload();
+    } catch (err) {
+      setCreateStatus(err.message, "err");
+    } finally {
+      btnEl.disabled = false;
+    }
+  });
 
   const reload = async () => {
     try {

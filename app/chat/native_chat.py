@@ -280,6 +280,97 @@ async def list_all_users(database_url: str) -> list[dict[str, Any]]:
         await conn.close()
 
 
+async def create_user_with_password(
+    database_url: str,
+    identifier: str,
+    password_hash: str,
+    *,
+    email: str | None = None,
+    role: str = "user",
+) -> dict[str, Any] | None:
+    """Admin-initiated user creation. Password is pre-hashed (bcrypt).
+
+    Returns the new user row as a dict, or None if identifier/email already
+    exists. `role` is "user" or "admin".
+    """
+    if role not in ("user", "admin"):
+        raise ValueError(f"invalid role: {role}")
+
+    conn = await asyncpg.connect(database_url)
+    try:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO "User" (identifier, email, password_hash, metadata, status, role)
+            VALUES ($1, $2, $3, '{"provider": "password"}', 'approved', $4)
+            ON CONFLICT (identifier) DO NOTHING
+            RETURNING id, identifier, email, metadata, status, role,
+                      "createdAt", "updatedAt", "lastLoginAt"
+            """,
+            identifier,
+            email,
+            password_hash,
+            role,
+        )
+        if row is None:
+            return None
+        out = dict(row)
+        out["id"] = str(out["id"])
+        try:
+            out["metadata"] = json.loads(out.get("metadata") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            out["metadata"] = {}
+        for key in ("createdAt", "updatedAt", "lastLoginAt"):
+            if out.get(key) is not None:
+                out[key] = out[key].isoformat()
+        return out
+    finally:
+        await conn.close()
+
+
+async def delete_user_cascade(
+    database_url: str, identifier: str
+) -> dict[str, int]:
+    """Hard-delete a user and all their Chainlit native chat data.
+
+    Order matters: Thread.userId has ON DELETE SET NULL, so we must delete
+    the user's Threads explicitly (which cascades to Step/Element/Feedback
+    via ON DELETE CASCADE) BEFORE deleting the User row. Otherwise Threads
+    would be orphaned with userId=NULL.
+
+    Returns a dict with row counts for auditability.
+    """
+    counts: dict[str, int] = {"threads": 0, "users": 0}
+    conn = await asyncpg.connect(database_url)
+    try:
+        async with conn.transaction():
+            thread_row = await conn.fetchrow(
+                """
+                WITH deleted AS (
+                    DELETE FROM "Thread"
+                    WHERE "userId" = (SELECT id FROM "User" WHERE identifier = $1)
+                    RETURNING id
+                )
+                SELECT COUNT(*) AS n FROM deleted
+                """,
+                identifier,
+            )
+            counts["threads"] = int(thread_row["n"]) if thread_row else 0
+
+            user_row = await conn.fetchrow(
+                """
+                WITH deleted AS (
+                    DELETE FROM "User" WHERE identifier = $1 RETURNING id
+                )
+                SELECT COUNT(*) AS n FROM deleted
+                """,
+                identifier,
+            )
+            counts["users"] = int(user_row["n"]) if user_row else 0
+        return counts
+    finally:
+        await conn.close()
+
+
 async def update_user_admin_fields(
     database_url: str,
     user_id: str,

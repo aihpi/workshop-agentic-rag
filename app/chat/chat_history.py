@@ -510,3 +510,32 @@ def delete_user_profile(db_path: Path, user_id: str) -> bool:
         )
         conn.commit()
         return cursor.rowcount > 0
+
+
+def hard_delete_user_data(db_path: Path, user_id: str) -> dict[str, int]:
+    """Delete every SQLite row owned by user_id across all 7 user-scoped tables.
+
+    Used by the user-deletion orchestrator (self-delete and admin-delete both
+    call this). Qdrant collections + PDFs on disk must be cleaned up by the
+    caller BEFORE this runs, because we need the KB rows to enumerate them.
+
+    FKs (`ON DELETE CASCADE`) handle the children: deleting a knowledge_base
+    row cascades to its kb_documents; deleting a chat_session cascades to
+    its chat_messages. Order below is therefore safe even with foreign_keys
+    enabled.
+    """
+    counts: dict[str, int] = {}
+    with _connect(db_path) as conn:
+        for table in (
+            "user_starters",
+            "user_settings",
+            "user_profiles",
+            "knowledge_bases",
+            "chat_sessions",
+        ):
+            cursor = conn.execute(
+                f"DELETE FROM {table} WHERE user_id = ?", (user_id,)
+            )
+            counts[table] = cursor.rowcount
+        conn.commit()
+    return counts

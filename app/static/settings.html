@@ -183,6 +183,24 @@ Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Stan
     </div>
   </section>
 
+  <section id="danger-section" style="border-color: var(--danger);">
+    <h2 style="color: var(--danger);">Konto löschen</h2>
+    <div class="sub">
+      Diese Aktion ist <strong>unwiderruflich</strong>. Alle Wissensdatenbanken,
+      hochgeladenen Dokumente, Chat-Verläufe und persönlichen Einstellungen
+      werden endgültig gelöscht. Chat-Exporte ggf. vorher mit
+      <code>/export all</code> sichern.
+    </div>
+    <label class="row" style="gap:8px; color: var(--text); margin-bottom: 12px;">
+      <input type="checkbox" id="delete-me-confirm" />
+      <span>Ich habe verstanden, dass die Löschung endgültig ist.</span>
+    </label>
+    <div class="row">
+      <button id="delete-me-btn" class="danger" disabled>Konto endgültig löschen</button>
+      <span id="delete-me-status" class="status"></span>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -521,6 +539,33 @@ Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Stan
       setStatus(startersStatus, err.message, "err");
     } finally {
       btn.disabled = false;
+    }
+  });
+
+  // ---------------- Self-delete (Danger Zone) ----------------
+
+  const deleteMeConfirm = document.getElementById("delete-me-confirm");
+  const deleteMeBtn = document.getElementById("delete-me-btn");
+  const deleteMeStatus = document.getElementById("delete-me-status");
+
+  deleteMeConfirm.addEventListener("change", () => {
+    deleteMeBtn.disabled = !deleteMeConfirm.checked;
+  });
+
+  deleteMeBtn.addEventListener("click", async () => {
+    if (!deleteMeConfirm.checked) return;
+    deleteMeBtn.disabled = true;
+    setStatus(deleteMeStatus, "Lösche Konto und alle Daten…", "");
+    try {
+      await api("/api/me", { method: "DELETE" });
+      setStatus(deleteMeStatus, "Gelöscht. Sitzung wird beendet…", "ok");
+      // Break out of the settings iframe on the way to /logout so the parent
+      // window also clears.
+      const top = window.top || window;
+      top.location.href = "/logout";
+    } catch (err) {
+      setStatus(deleteMeStatus, err.message, "err");
+      deleteMeBtn.disabled = false;
     }
   });
 
