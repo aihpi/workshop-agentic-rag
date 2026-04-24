@@ -5,6 +5,7 @@ Used by the per-user FastAPI upload endpoint (app/api/api_routes.py).
 
 from __future__ import annotations
 
+import functools
 import logging
 import uuid
 from pathlib import Path
@@ -276,6 +277,23 @@ def _parse_pdf_remote(path: Path, service_url: str) -> list[dict[str, Any]] | No
     return sections
 
 
+@functools.cache
+def _get_pdf_converter() -> DocumentConverter:
+    """Module-level DocumentConverter cache.
+
+    DocumentConverter is cheap to construct, but internally it lazily builds
+    a Pipeline on first `convert()` — that's where the layout / table models
+    get loaded into memory (or onto the GPU). If we construct a fresh
+    DocumentConverter per upload (as we used to), every parse re-runs that
+    pipeline init and re-loads weights. Sharing one instance means the
+    pipeline is built exactly once per process.
+    """
+    pdf_opts = PdfPipelineOptions(do_ocr=False)
+    return DocumentConverter(
+        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_opts)},
+    )
+
+
 def parse_pdf(path: Path) -> list[dict[str, Any]]:
     if DOCLING_SERVICE_URL:
         remote_sections = _parse_pdf_remote(path, DOCLING_SERVICE_URL)
@@ -283,10 +301,7 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
             return remote_sections
         # Fall through to local parsing on remote failure.
 
-    pdf_opts = PdfPipelineOptions(do_ocr=False)
-    converter = DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_opts)},
-    )
+    converter = _get_pdf_converter()
     result = converter.convert(str(path))
     document = getattr(result, "document", None)
     if document is None:

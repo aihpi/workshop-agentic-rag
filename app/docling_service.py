@@ -38,22 +38,35 @@ _ready = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Warm up Docling at startup so the first /process call doesn't
-    pay the 10–15s model-load cost."""
+    """Warm up Docling at startup.
+
+    Constructing a DocumentConverter is cheap — the expensive bit (pipeline
+    init + model weights → GPU memory) only happens on the first actual
+    .convert() call. So we prime the shared converter AND run one real
+    parse against a known-good baked-in PDF. By the time the readiness
+    probe flips green, the first user upload skips the model-load cost.
+    """
     global _ready
     logger.info("docling_service.startup begin")
     try:
-        from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
-        from docling.document_converter import DocumentConverter, PdfFormatOption
+        from kb.ingestion_pipeline import _get_pdf_converter
 
-        # Construct a throwaway DocumentConverter to trigger model download
-        # and GPU memory allocation. Subsequent parse_file() calls re-use
-        # the cached weights (torch/Docling's own model cache).
-        pdf_opts = PdfPipelineOptions(do_ocr=False)
-        DocumentConverter(
-            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_opts)},
-        )
+        # Prime the module-level cache.
+        converter = _get_pdf_converter()
+
+        # Force pipeline init + weight load via a real parse. The BSI standard
+        # PDFs are baked into the image under /data/data_raw/; any one works.
+        warmup_pdf = Path("/data/data_raw/standard_200_1.pdf")
+        if warmup_pdf.is_file():
+            logger.info("docling_service.warmup parsing=%s", warmup_pdf)
+            converter.convert(str(warmup_pdf))
+            logger.info("docling_service.warmup done")
+        else:
+            logger.warning(
+                "docling_service.warmup skipped — %s missing; first user upload will pay model-load cost",
+                warmup_pdf,
+            )
+
         _ready = True
         logger.info("docling_service.startup ready")
     except Exception:
