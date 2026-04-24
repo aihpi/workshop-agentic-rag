@@ -49,17 +49,6 @@ Proposed shape — per-user toggle in the ingestion/settings panel (reuse `user_
 
 Estimate: ~½ day if done as a pure toggle; more if the `$`-escape preprocessor has to survive Chainlit's markdown pipeline cleanly.
 
-## Nutzungsbedingungen modal not shown after login
-
-Terms modal never opens for logged-in users. Root cause in [app/public/custom.js:313-324](app/public/custom.js#L313-L324): `loadAndMaybeShowTerms()` runs at IIFE time AND on `window.load`, which both fire on the `/login` page — before any auth cookie exists. `/api/terms` requires auth → 401 → `data === null` → silent return. But `termsChecked = true` is set *before* the fetch, so the latch is held. Chainlit's post-login hand-off is client-side routed (no full reload), so the check never re-runs.
-
-Fix (~5 lines):
-- Early-return from `loadAndMaybeShowTerms` if on `/login` (reuse the `onLogin` regex from `markLoginPage`).
-- Move `termsChecked = true` *inside* the `.then` block where we got valid JSON — not before the fetch.
-- Re-run on `popstate` / after the login route transition, the same pattern `markLoginPage` already uses.
-
-Verification: wipe a user with `DELETE FROM "User" WHERE identifier = 'X'`, log in fresh, modal should appear. With the current code it silently doesn't.
-
 ## Strip CUDA from the image (~4 GB win)
 
 Built image is ~6 GB; roughly 4 of that is `nvidia-*` / `cuda-*` / `cudnn` / `nccl` that we never execute — k8s target is CPU-only. Root cause: `docling` pulls `torch`, and pip's default Linux torch wheel is the CUDA variant.
