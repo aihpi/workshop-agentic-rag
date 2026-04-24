@@ -29,6 +29,13 @@ spec:
               value: /data/data_raw
             - name: DOCLING_SERVICE_URL
               value: http://docling-service.workshop-agentic-rag.svc:8080
+            # SQLite holds user KBs, settings, starters, chat history — all
+            # load-bearing UI state. Default path (/app/.chainlit/chat_history.sqlite3)
+            # is ephemeral; a pod restart wipes every user's KBs even though
+            # the PDF files on the PVC survive. Point it at the existing
+            # kb-docs PVC to make the whole picture persistent.
+            - name: CHAT_DB_PATH
+              value: /data/kb_docs/chat_history.sqlite3
           envFrom:
             - secretRef:
                 name: workshop-app-secrets
