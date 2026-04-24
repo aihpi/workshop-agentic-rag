@@ -311,13 +311,24 @@
     document.body.style.overflow = "hidden";
   }
 
+  function isOnLoginPage() {
+    return /^\/login(\b|\/)/.test(window.location.pathname);
+  }
+
   function loadAndMaybeShowTerms() {
     if (termsChecked) return;
-    termsChecked = true;
+    // /api/terms requires auth. Calling it from /login where no auth cookie
+    // exists returns 401 — and if we latched termsChecked=true on that, the
+    // subsequent post-login client-side route transition would never re-run
+    // the check, and the modal would only appear on a full refresh.
+    if (isOnLoginPage()) return;
     fetch("/api/terms", { credentials: "include" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data) return;
+        // Only latch once we actually got a valid answer — a 401 while
+        // session is still settling shouldn't permanently disable the check.
+        termsChecked = true;
         if (data.up_to_date) return;
         openTermsModal(data);
       })
@@ -419,6 +430,11 @@
     ensureLegalFooter();
     interceptSettingsLinks();
     hideAdminLinksIfNotAdmin();
+    // Chainlit navigates /login → / via client-side routing with no page
+    // reload. The observer fires on the DOM churn that follows the nav,
+    // so this is where we retry the terms fetch once we're actually
+    // authenticated. Guarded by termsChecked so it fetches at most once.
+    loadAndMaybeShowTerms();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
