@@ -252,6 +252,41 @@ async def upsert_user_on_login(
         await conn.close()
 
 
+async def list_inactive_users(
+    database_url: str,
+    days: int,
+) -> list[dict[str, Any]]:
+    """Users whose last login (or creation, if never logged in) is older than `days`.
+
+    COALESCE over lastLoginAt → createdAt covers admin-created users who never
+    logged in once: they still age out after `days` from their creation date.
+    """
+    conn = await asyncpg.connect(database_url)
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT id, identifier, email, status, role,
+                   "createdAt", "lastLoginAt"
+            FROM "User"
+            WHERE COALESCE("lastLoginAt", "createdAt")
+                  < NOW() - ($1::int * INTERVAL '1 day')
+            ORDER BY COALESCE("lastLoginAt", "createdAt") ASC
+            """,
+            days,
+        )
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            item["id"] = str(item["id"])
+            for key in ("createdAt", "lastLoginAt"):
+                if item.get(key) is not None:
+                    item[key] = item[key].isoformat()
+            out.append(item)
+        return out
+    finally:
+        await conn.close()
+
+
 async def list_all_users(database_url: str) -> list[dict[str, Any]]:
     conn = await asyncpg.connect(database_url)
     try:
