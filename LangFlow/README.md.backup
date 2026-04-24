@@ -173,7 +173,7 @@ Chat Input ─► Agent ─► Chat Output
 2. In Langflow, open **Projects → MCP Server tab → Edit Tools** and make sure `01_rag_basic` is enabled (checkbox in the first column). This exposes Flow 1 as an MCP tool.
 3. **Find your PROJECT_ID.** The Edit Tools dialog only lists tool names — it does not show the URL. Get the ID:
 
-   - **MCP Server tab → Auto install** the JSON snippet contains the full URL `http://LANGFLOW_SERVER_ADDRESS/api/v1/mcp/project/<PROJECT_ID>/streamable`. Copy the PROJECT_ID from there.
+   - **MCP Server tab → Auto install** sub-tab — pick any client card (e.g. Cursor); the generated JSON snippet contains the full URL `http://LANGFLOW_SERVER_ADDRESS/api/v1/mcp/project/<PROJECT_ID>/streamable`. Copy the PROJECT_ID from there.
 
 4. Open **Settings → MCP Servers → Add MCP Server** twice — paste the PROJECT_ID from step 3 into the first URL:
 

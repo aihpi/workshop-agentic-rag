@@ -636,7 +636,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "gpt-oss-120b"
+                "value": "ministral-3-14b"
               },
               "stream": {
                 "_input_type": "BoolInput",
