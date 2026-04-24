@@ -571,25 +571,13 @@ Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Stan
     deleteMeBtn.disabled = true;
     setStatus(deleteMeStatus, "Lösche Konto und alle Daten…", "");
     try {
+      // DELETE /api/me both removes data AND sets an expired-cookie header
+      // on the response, so by the time this await returns, the browser has
+      // dropped the access_token. location.replace(/login) then lands on an
+      // unauthenticated page — no MutationObserver run on / means no terms
+      // modal flash, no post-login upsert re-creating the account.
       await api("/api/me", { method: "DELETE" });
       setStatus(deleteMeStatus, "Gelöscht. Abmelden…", "ok");
-      // Two-step logout: DELETE cleared the DB row, but the Chainlit session
-      // cookie is still valid until we hit /logout. If we just navigated to
-      // /logout, the parent window's MutationObserver could briefly fire the
-      // terms modal (because /api/terms still returns a 200 against the
-      // valid-but-orphaned session). So clear the cookie explicitly via
-      // fetch, then hard-replace into /login — which has an
-      // isOnLoginPage() early-return guard in custom.js and cannot show the
-      // modal. location.replace also drops the deleted state from history.
-      try {
-        await fetch("/logout", {
-          method: "GET",
-          credentials: "include",
-          redirect: "manual",
-        });
-      } catch (_) {
-        // best effort — the redirect to /login below still clears client state
-      }
       const topWin = window.top || window;
       topWin.location.replace("/login");
     } catch (err) {
