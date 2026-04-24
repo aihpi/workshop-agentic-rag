@@ -16,5 +16,5 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["core", "chat", "kb", "api", "langflow", "langflow.components"]
+packages = ["core", "chat", "kb", "api", "cli", "langflow", "langflow.components"]
 py-modules = ["app"]

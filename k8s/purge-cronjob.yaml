@@ -1,0 +1,62 @@
+# Daily scheduled purge of users inactive for >= PURGE_INACTIVE_DAYS.
+#
+# Enforces the 90-day retention window promised in the privacy policy
+# (app/public/privacy.html). Runs the same hard_delete_user orchestrator
+# as DELETE /api/me, so cascade semantics stay in one place:
+#   Qdrant collections + persisted PDFs → SQLite → Postgres User row.
+#
+# Env-admin (CHAINLIT_AUTH_USERNAME) is protected twice — once by the CLI
+# skip list, once by hard_delete_user's own guard.
+#
+# Manual dry-run (safe, no schedule wait):
+#   kubectl -n workshop-agentic-rag create job \
+#     --from=cronjob/purge-inactive-users purge-test-$(date +%s)
+#   kubectl -n workshop-agentic-rag logs job/purge-test-<ts>
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: purge-inactive-users
+  labels:
+    app: workshop-app
+spec:
+  schedule: "0 3 * * *"
+  timeZone: "Etc/UTC"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: purge
+              image: ghcr.io/aihpi/workshop-agentic-rag:sha-e86803f
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-m", "cli.purge_inactive"]
+              workingDir: /app
+              env:
+                - name: CHAT_DB_PATH
+                  value: /data/kb_docs/chat_history.sqlite3
+                - name: DATA_KB_DOCS_DIR
+                  value: /data/kb_docs
+                - name: PURGE_INACTIVE_DAYS
+                  value: "90"
+              envFrom:
+                - secretRef:
+                    name: workshop-app-secrets
+              volumeMounts:
+                - name: kb-docs
+                  mountPath: /data/kb_docs
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+          volumes:
+            - name: kb-docs
+              persistentVolumeClaim:
+                claimName: workshop-app-kb-docs

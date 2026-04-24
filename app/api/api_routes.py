@@ -183,6 +183,59 @@ async def _require_admin(current_user: Any) -> str:
     return identifier
 
 
+def is_env_admin(identifier: str) -> bool:
+    """True if this identifier is the env-admin whose credentials come
+    from CHAINLIT_AUTH_USERNAME/PASSWORD. Deleting that user is pointless
+    because the auth callback's fallback re-creates it on the next login,
+    and the re-created row has no accepted-terms / KBs, which just
+    confuses the operator."""
+    return bool(CHAINLIT_AUTH_USERNAME) and identifier == CHAINLIT_AUTH_USERNAME
+
+
+async def hard_delete_user(identifier: str) -> dict[str, Any]:
+    """Orchestrate a full user teardown across Qdrant, disk, SQLite, Postgres.
+
+    Called by both delete endpoints (DELETE /api/me, DELETE /api/admin/users/{id})
+    and by the scheduled inactivity purge CLI (app.cli.purge_inactive).
+
+    The ordering (Qdrant/disk → SQLite → Postgres) is deliberate: we need the
+    KB rows to enumerate collections+files, so drop external resources first
+    while the rows still exist; then SQLite; then the Postgres User row.
+    Partial failures leave orphaned external state but never orphaned auth
+    data — better than the reverse.
+    """
+    qdrant_collections_dropped = 0
+    pdfs_unlinked = 0
+
+    for kb in list_kbs(CHAT_DB_PATH, identifier):
+        for doc in list_documents(CHAT_DB_PATH, kb["id"]):
+            path = _persisted_doc_path(doc["id"], doc["file_name"])
+            if path.exists():
+                path.unlink(missing_ok=True)
+                pdfs_unlinked += 1
+        drop_collection(kb["qdrant_collection"])
+        qdrant_collections_dropped += 1
+
+    sqlite_counts = hard_delete_user_data(CHAT_DB_PATH, identifier)
+
+    pg_counts = {"threads": 0, "users": 0}
+    if DATABASE_URL:
+        pg_counts = await delete_user_cascade(DATABASE_URL, identifier)
+
+    logger.info(
+        "user.hard_delete identifier=%s qdrant=%d pdfs=%d sqlite=%s pg=%s",
+        identifier, qdrant_collections_dropped, pdfs_unlinked,
+        sqlite_counts, pg_counts,
+    )
+    return {
+        "identifier": identifier,
+        "qdrant_collections_dropped": qdrant_collections_dropped,
+        "pdfs_unlinked": pdfs_unlinked,
+        "sqlite": sqlite_counts,
+        "postgres": pg_counts,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
@@ -575,65 +628,13 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
         return row
 
-    async def _hard_delete_user(identifier: str) -> dict[str, Any]:
-        """Orchestrate a full user teardown across Qdrant, disk, SQLite, Postgres.
-
-        Used by both DELETE /api/me (self) and DELETE /api/admin/users/{id} (admin).
-        The ordering (Qdrant/disk → SQLite → Postgres) is deliberate: we need the
-        KB rows to enumerate collections+files, so drop external resources first
-        while the rows still exist; then SQLite; then the Postgres User row.
-        Partial failures leave orphaned external state but never orphaned auth
-        data — better than the reverse.
-        """
-        qdrant_collections_dropped = 0
-        pdfs_unlinked = 0
-
-        # Step 1 — Qdrant collections + disk PDFs for every KB this user owns.
-        for kb in list_kbs(CHAT_DB_PATH, identifier):
-            for doc in list_documents(CHAT_DB_PATH, kb["id"]):
-                path = _persisted_doc_path(doc["id"], doc["file_name"])
-                if path.exists():
-                    path.unlink(missing_ok=True)
-                    pdfs_unlinked += 1
-            drop_collection(kb["qdrant_collection"])
-            qdrant_collections_dropped += 1
-
-        # Step 2 — SQLite: all 7 user-scoped tables in one transaction.
-        sqlite_counts = hard_delete_user_data(CHAT_DB_PATH, identifier)
-
-        # Step 3 — Postgres: Threads (cascades to Steps/Elements/Feedback), then User.
-        pg_counts = {"threads": 0, "users": 0}
-        if DATABASE_URL:
-            pg_counts = await delete_user_cascade(DATABASE_URL, identifier)
-
-        logger.info(
-            "user.hard_delete identifier=%s qdrant=%d pdfs=%d sqlite=%s pg=%s",
-            identifier, qdrant_collections_dropped, pdfs_unlinked,
-            sqlite_counts, pg_counts,
-        )
-        return {
-            "identifier": identifier,
-            "qdrant_collections_dropped": qdrant_collections_dropped,
-            "pdfs_unlinked": pdfs_unlinked,
-            "sqlite": sqlite_counts,
-            "postgres": pg_counts,
-        }
-
-    def _is_env_admin(identifier: str) -> bool:
-        """True if this identifier is the env-admin whose credentials come
-        from CHAINLIT_AUTH_USERNAME/PASSWORD. Deleting that user is pointless
-        because the auth callback's fallback re-creates it on the next login,
-        and the re-created row has no accepted-terms / KBs, which just
-        confuses the operator."""
-        return bool(CHAINLIT_AUTH_USERNAME) and identifier == CHAINLIT_AUTH_USERNAME
-
     @fastapi_app.delete("/api/me")
     async def delete_own_account(
         response: Response,
         current_user=Depends(get_current_user),
     ):
         identifier = _user_id(current_user)
-        if _is_env_admin(identifier):
+        if is_env_admin(identifier):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -643,7 +644,7 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                     "Benutzer im Admin-Bereich anlegen und damit testen."
                 ),
             )
-        result = await _hard_delete_user(identifier)
+        result = await hard_delete_user(identifier)
         # Expire the Chainlit session cookie in the DELETE response itself.
         # Without this, the client keeps a JWT whose identifier is now orphaned
         # in Postgres — and /api/terms would still answer it (JWT signature
@@ -667,7 +668,7 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                 status_code=400,
                 detail="Zum Löschen des eigenen Kontos bitte /api/me verwenden.",
             )
-        if _is_env_admin(target["identifier"]):
+        if is_env_admin(target["identifier"]):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -675,7 +676,7 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                     "es würde beim nächsten Login automatisch neu angelegt."
                 ),
             )
-        result = await _hard_delete_user(target["identifier"])
+        result = await hard_delete_user(target["identifier"])
         return {"deleted": True, **result}
 
     @fastapi_app.post("/api/admin/users")

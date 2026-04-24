@@ -28,22 +28,6 @@ Three pieces to finish:
 
 Ties into "Strip CUDA from the image" below — once the main app image is CPU-only, this service becomes the single place CUDA wheels live, and the image split pays for itself in pull time.
 
-## User delete endpoint
-
-Today there's no way for a user (or admin) to delete their account + data. Data is spread across Postgres, SQLite, Qdrant, and disk, so accounts linger and accumulate.
-
-Implementation sketch — compose three existing helpers into one `DELETE /api/users/me` (and admin `DELETE /api/users/{id}`):
-
-1. **Postgres** ([app/chat/native_chat.py:56-65](app/chat/native_chat.py#L56-L65)) — threads first (FK is `ON DELETE SET NULL`, so otherwise orphaned), then user. Steps/Elements/Feedback cascade via `threadId`.
-   ```sql
-   DELETE FROM "Thread" WHERE "userId" = (SELECT id FROM "User" WHERE identifier = $1);
-   DELETE FROM "User" WHERE identifier = $1;
-   ```
-2. **SQLite** — generalize [delete_user_profile](app/chat/chat_history.py#L505) to one transaction over `knowledge_bases`, `kb_documents`, `user_settings`, `user_starters`, `user_profiles`.
-3. **Qdrant + uploaded PDFs** — reuse the per-KB teardown from [remove_knowledge_base](app/api/api_routes.py#L235): iterate the user's KBs, `drop_collection` each, unlink persisted PDFs via [_persisted_doc_path](app/api/api_routes.py#L61).
-
-UI: small "delete my account" button in the ingestion panel; admin-only list + delete in a separate admin view. Estimate ~½ day.
-
 ## LaTeX / math rendering — off by default, delimiter mismatch
 
 [app/.chainlit/config.toml:34](app/.chainlit/config.toml#L34) has `latex = false`, so math in model responses renders as raw text (user saw `(W^{Q}_{i}, W^{K}_{i}, W^{V}_{i})` and `d_{\text{model}}` unrendered). Chainlit's comment warns that turning it on clashes with literal `$` characters — a real tradeoff for a chat app where users may paste code or prices.
