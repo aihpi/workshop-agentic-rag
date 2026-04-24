@@ -31,7 +31,30 @@ from core.settings import (
 logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[int, int], Awaitable[None]]
-SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
+
+# User-facing upload endpoints (app + docling-service) accept PDFs only.
+# The .txt/.md branch in parse_file() is dead code for now but kept in case
+# we re-enable those formats later.
+SUPPORTED_EXTENSIONS = {".pdf"}
+
+_PDF_MAGIC = b"%PDF-"
+
+
+def validate_pdf_upload(path: Path) -> None:
+    """Raise ValueError if the file at `path` is not a valid PDF.
+
+    Magic-byte check (not filename). Called after we've written bytes to a
+    tempfile but before any downstream parser touches them, so renamed
+    non-PDF files (e.g. foo.exe → foo.pdf) are rejected before they reach
+    Docling.
+    """
+    try:
+        with open(path, "rb") as fh:
+            header = fh.read(len(_PDF_MAGIC))
+    except OSError as exc:
+        raise ValueError(f"PDF-Datei nicht lesbar: {exc}")
+    if not header.startswith(_PDF_MAGIC):
+        raise ValueError("Die Datei ist keine gültige PDF (falsche Magic Bytes).")
 
 
 # ---------------------------------------------------------------------------

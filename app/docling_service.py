@@ -24,7 +24,8 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from kb.ingestion_pipeline import SUPPORTED_EXTENSIONS, parse_file
+from core.settings import MAX_FILE_SIZE_MB
+from kb.ingestion_pipeline import SUPPORTED_EXTENSIONS, parse_file, validate_pdf_upload
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,15 @@ async def healthz():
 
 @app.post("/process")
 async def process(file: UploadFile = File(...)):
-    """Parse an uploaded PDF (or txt/md) and return the section list the
-    main app's ingest pipeline already expects. Same output shape as
-    calling `parse_file()` locally."""
+    """Parse an uploaded PDF and return the section list the main app's
+    ingest pipeline already expects. Same output shape as calling
+    `parse_file()` locally.
+
+    Defence-in-depth: the app upload endpoint already does extension +
+    Content-Type + magic-byte checks before forwarding here, but we
+    re-validate at the service so cluster-internal callers (debug scripts,
+    future workers) can't bypass.
+    """
     original_name = file.filename or "upload"
     ext = Path(original_name).suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
@@ -84,8 +91,14 @@ async def process(file: UploadFile = File(...)):
             status_code=400,
             detail=f"Unsupported file extension {ext or '(empty)'}; allowed: {sorted(SUPPORTED_EXTENSIONS)}",
         )
+    if file.content_type and file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=415,
+            detail=f"Content-Type {file.content_type} not supported; only application/pdf.",
+        )
 
-    # Stream body to a tempfile so we don't buffer the full PDF in memory.
+    # Stream body to a tempfile, enforcing the same size cap as the app endpoint.
+    max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         total = 0
         while True:
@@ -93,8 +106,22 @@ async def process(file: UploadFile = File(...)):
             if not chunk:
                 break
             total += len(chunk)
+            if total > max_bytes:
+                tmp.close()
+                Path(tmp.name).unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Datei überschreitet {MAX_FILE_SIZE_MB} MB",
+                )
             tmp.write(chunk)
         tmp_path = Path(tmp.name)
+
+    # Magic-byte guard — rejects renamed files before Docling touches them.
+    try:
+        validate_pdf_upload(tmp_path)
+    except ValueError as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=415, detail=str(exc))
 
     try:
         # parse_file is sync + CPU/GPU-bound → to_thread to keep the event loop free.
