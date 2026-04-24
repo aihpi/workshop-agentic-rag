@@ -1,0 +1,310 @@
+# Agentic RAG with Langflow — Workshop
+
+A hands-on workshop that walks through five progressive agentic RAG patterns using [Langflow](https://www.langflow.org/), a visual low-code builder for LLM workflows.
+
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Docker Desktop | [Download](https://www.docker.com/products/docker-desktop/) — the only required install |
+| HPI AISC API key | Provided by the workshop organiser |
+| (Optional) Tavily API key | Free at [tavily.com](https://tavily.com) — only needed for Flow 5 |
+| (Optional) Prior Labs API key | Free at [ux.priorlabs.ai](https://ux.priorlabs.ai) — only needed for Flow 6 (TabPFN MCP) |
+
+You do **not** need Python, LangChain, or any other library installed locally.
+
+---
+
+## Quickstart (5 minutes)
+
+**1. Copy the environment file and fill in your API key:**
+
+```bash
+cd ~/Workshops/LangFlow/setup
+cp .env.example .env
+# Open .env and replace "your_hpi_aisc_api_key_here" with your real key
+```
+
+**2. Start Langflow and Qdrant:**
+
+```bash
+docker compose up
+```
+
+Wait for the line: `Langflow is ready at http://0.0.0.0:7860`
+
+**3. Open Langflow in your browser:**
+
+```
+http://localhost:7860
+```
+
+**4. Set your API keys as Global Variables** (do this once, all flows will use them):
+
+- Go to **Settings** (gear icon, bottom-left) → **Global Variables**
+- Add `AISC_API_KEY` → paste your HPI AISC key
+- Add `AISC_BASE_URL` → `https://api.aisc.hpi.de`
+- Add `QDRANT_URL` → `http://qdrant:6333`
+
+---
+
+## How to Import a Flow
+
+1. In the Langflow sidebar, click **New Flow** → **Import**
+2. Select one of the `.json` files from the `flows/` folder
+3. The flow opens in the canvas — you can explore, run, and modify it
+
+---
+
+## How to Upload Custom Components
+
+The `custom_components/` folder contains production components from the reference app. Upload them once and they become available in all flows:
+
+1. In the sidebar, click **Components** (puzzle icon)
+2. Click **Upload Component** (top-right of the panel)
+3. Select all `.py` files from `custom_components/` (except `__init__.py`)
+4. They appear under **Custom Components** in the component list
+
+---
+
+## Workshop Flows
+
+Work through these flows in order. Each builds on concepts from the previous one.
+
+### Flow 0 — Chat Bot (`flows/00_ChatBot.json`)
+
+A plain chat loop (no retrieval, no tools). Here only to demonstrate the basic Langflow shape: `Chat Input → Prompt Template → LLM → Chat Output`.
+
+---
+
+### Flow 1 — Basic RAG Pipeline (`flows/01_RAG_Basic.json`)
+
+The simplest possible RAG system. No agent — just a chain.
+
+```
+File → Split Text → Embeddings → Qdrant (ingest)
+Chat Input → Qdrant Retriever → Parse Data → Prompt Template → LLM → Chat Output
+```
+
+**What you'll learn:**
+- How documents are chunked and stored as vectors
+- How a query is turned into a vector and matched against stored chunks
+- How retrieved context is injected into the LLM prompt
+
+This flow is **re-used in Flow 5** as an MCP tool, so keep the `rag_basic` collection populated with at least one document.
+
+---
+
+### Flow 2 — Agentic RAG (`flows/02_RAG_Agentic.json`)
+
+Same retrieval logic, but now the LLM is an **agent** that decides *when* to use retrieval as a tool.
+
+```
+Chat Input → Agent (with RAG Tool) → Chat Output
+```
+
+**What you'll learn:**
+- Chain vs agent (always-retrieves vs retrieves-when-needed)
+- How to expose a component as a Tool (toggle "Tool Mode")
+- How agents reason step-by-step before responding
+
+---
+
+### Flow 3 — Agentic RAG with Multiple Tools (`flows/03_RAG_multiple_tools.json`)
+
+Agent with more than one tool — shows how tool selection works when the agent has several options.
+
+**What you'll learn:**
+- Multi-tool agent tool-routing
+- How the agent's system prompt influences tool selection
+
+---
+
+### Flow 4 — Memory + Flow Control + Multi-tool Fusion (`flows/04_RAG_query_transformation.json`)
+
+An agent with **Memory** (write insights, read them back on later turns), **Flow Control** (If-Else + Pass gate the memory write), and **two tools**: a Python REPL for numeric questions over the Titanic CSV and a Qdrant retriever for Wikipedia pages.
+
+```
+                                    ┌─► excel_reader (Python REPL on /app/flows/data/titanic.csv)
+Chat Input ─► Agent ◄─ tools ───────┤
+                     ▲              └─► document_search (Qdrant / Wikipedia)
+Memory(Retrieve) → Prompt Template ─┘
+                                     │
+Agent.response ─► ChatOutput         │
+           │                         │
+           └─► If-Else (contains "REMEMBER:")
+                ├── true  → Store Message  (writes insight to session memory)
+                └── false → Pass           (skip write)
+```
+
+**What you'll learn:**
+- Session memory: using `Memory` + `Store Message` as a pair
+- Flow Control primitives: `ConditionalRouter` (If-Else) and `Pass`
+- Fusing tabular tool output (pandas) with document-retrieval output
+
+**Try it (same chat, three turns):**
+
+1. *"Which passenger class had the highest survival rate, and what does Wikipedia say about third-class evacuation?"* — invokes both tools.
+2. *"From now on, please answer me in German."* — agent should append `REMEMBER: user prefers German.`
+3. *"Wie alt war der jüngste Überlebende?"* — on this new turn the Memory node reads the prior insight and the agent answers in German.
+
+Data:
+- `LangFlow/data/titanic.csv` (891 rows, from datasciencedojo/datasets, MIT).
+- `LangFlow/data/titanic_wiki.md` (CC BY-SA 4.0, derived from the English Wikipedia articles *Titanic*, *Sinking of the Titanic*, *Passengers of the Titanic*). Upload this file into the `File` node on first run so it gets indexed into the `rag_titanic` Qdrant collection.
+
+---
+
+### Flow 5 — Introducing MCP (`flows/05_MCP_basic.json`)
+
+Shows how to consume **Model Context Protocol** servers as agent tools — both a local Langflow MCP server (re-exposing Flow 1) and a remote web-search MCP (Tavily).
+
+```
+Chat Input ─► Agent ─► Chat Output
+               ▲ tools
+               ├── MCP: local_rag_basic  (Flow 01 deployed as MCP tool)
+               └── MCP: tavily_search    (https://mcp.tavily.com SSE)
+```
+
+**Setup (one-time):**
+
+1. Run Flow 1 at least once so the `rag_basic` Qdrant collection contains documents.
+2. In Langflow, open **Projects → MCP Server tab → Edit Tools** and make sure `01_rag_basic` is enabled (checkbox in the first column). This exposes Flow 1 as an MCP tool.
+3. **Find your PROJECT_ID.** The Edit Tools dialog only lists tool names — it does not show the URL. Get the ID:
+
+   - **MCP Server tab → Auto install** sub-tab — pick any client card (e.g. Cursor); the generated JSON snippet contains the full URL `http://LANGFLOW_SERVER_ADDRESS/api/v1/mcp/project/<PROJECT_ID>/streamable`. Copy the PROJECT_ID from there.
+
+4. Open **Settings → MCP Servers → Add MCP Server** twice — paste the PROJECT_ID from step 3 into the first URL:
+
+   | Name               | URL                                                                                     |
+   |--------------------|-----------------------------------------------------------------------------------------|
+   | `local_rag_basic`  | `http://langflow:7860/api/v1/mcp/project/<YOUR_PROJECT_ID>/streamable` (Streamable HTTP) |
+   | `tavily_search`    | `https://mcp.tavily.com/mcp/?tavilyApiKey=<YOUR_TAVILY_KEY>` (SSE transport)            |
+
+   Use `http://langflow:…` (the compose service name) when Langflow runs inside Docker and this flow runs inside the same compose network. From a browser-side test you would use `http://localhost:7860/…`.
+
+5. Open each `MCPTools` node in Flow 5 and click **Refresh Tools** so Langflow loads the remote tool schemas. After a successful refresh, `local_rag_basic` shows a `_01_rag_basic` tool and `tavily_search` shows `tavily-search`, `tavily-extract`, etc.
+
+**What you'll learn:**
+- What MCP is and why it matters
+- How to deploy a Langflow flow as an MCP server
+- How to consume MCP tools from another flow
+- Combining a local-retrieval MCP and a web-search MCP in the same agent
+
+---
+
+### Flow 6 — MCP to TabPFN for Financial Predictions (`flows/06_MCP_tabpfn.json`)
+
+**Duration:** ~40 min
+
+An agent with a `SmartRouter` (LLM classifier) that splits each user question into a **descriptive** branch or an **inferential** branch:
+
+- **descriptive** → minimal Agent + Python REPL → pandas on `/app/flows/data/german_credit.csv`.
+- **inferential** → richer Agent + Python REPL + 3 TabPFN MCP tools (`upload_dataset`, `fit_and_predict_from_dataset`, `fit_and_predict_inline`).
+
+```
+Chat Input ─► SmartRouter ─► (descriptive) ─► Agent_desc  (pandas only)  ─┐
+                          └─► (inferential) ─► Agent_inf   + TabPFN MCP ──┴─► Chat Output
+```
+
+**Setup (one-time):**
+
+1. Get a Prior Labs API key at <https://ux.priorlabs.ai> → Access Tokens.
+2. Open **Settings → MCP Servers → Add MCP Server**:
+
+   | Field | Value |
+   |---|---|
+   | Name | `tabpfn` |
+   | URL  | `https://api.priorlabs.ai/mcp/server` |
+   | Headers | `{"Authorization": "Bearer <YOUR_PRIORLABS_API_KEY>"}` |
+
+3. Re-open each of the three MCPTools nodes (`upload_dataset`, `fit_and_predict_from_dataset`, `fit_and_predict_inline`) and click **Refresh Tools**.
+4. `LangFlow/data/german_credit.csv` is already bind-mounted to `/app/flows/data/german_credit.csv` inside the Langflow container (public-domain, 1000 rows, OpenML dataset 31).
+
+**Try it:**
+
+- *Descriptive:* *"What is the mean credit_amount by purpose?"*
+- *Descriptive:* *"How many applicants have foreign_worker = yes?"*
+- *Inferential:* *"Given duration=24, credit_amount=5000, checking_status='no checking', age=35, purpose='radio/tv', predict the credit risk class."*
+- *Inferential:* *"Train on 80 % and report test-set accuracy for predicting `class`."*
+
+**What you'll learn:**
+- `SmartRouter` as a Flow Control primitive (LLM-based classification)
+- Wiring two agents off a single router
+- Calling an external foundation-model MCP (TabPFN) from Langflow
+- The upload → HTTP PUT → fit_and_predict dance TabPFN requires
+
+---
+
+## Folder Structure
+
+```
+LangFlow/
+├── README.md                    ← this file
+├── setup/
+│   ├── docker-compose.yml       ← starts Langflow + Qdrant, bind-mounts ../data → /app/flows/data
+│   └── .env.example             ← template for API keys (copy → .env)
+├── data/                        ← public datasets used by Flow 4 + Flow 6
+│   ├── titanic.csv              ← 891 rows (Flow 4 excel_reader)
+│   ├── titanic_wiki.md          ← Wikipedia Titanic pages (Flow 4 Qdrant ingest)
+│   └── german_credit.csv        ← OpenML dataset 31 (Flow 6)
+├── custom_components/           ← upload these once in the Langflow UI (optional)
+│   ├── adaptive_qdrant_retriever.py
+│   ├── agent_tool_envelope_extractor.py
+│   ├── answer_envelope_builder.py
+│   ├── envelope_output.py
+│   ├── grundschutz_search_tool.py
+│   ├── source_documents_builder.py
+│   └── text_output.py
+└── flows/
+    ├── 00_ChatBot.json
+    ├── 01_RAG_Basic.json
+    ├── 02_RAG_Agentic.json
+    ├── 03_RAG_multiple_tools.json
+    ├── 04_RAG_query_transformation.json
+    ├── 05_MCP_basic.json
+    └── 06_MCP_tabpfn.json
+```
+
+---
+
+## LLM Model Selection
+
+All flows use the **OpenAI** component pointed at the HPI AISC model hub:
+
+| Langflow field | Value |
+|---|---|
+| Base URL | `https://api.aisc.hpi.de` |
+| API Key | your `AISC_API_KEY` global variable |
+| Model | `ministral-3-14b` (or any model listed on the hub) |
+
+To switch models: click the **OpenAI** component in any flow → change the **Model Name** field.
+
+---
+
+## Troubleshooting
+
+**Port 7860 already in use:**
+```bash
+docker compose down && docker compose up
+```
+Or change `7860:7860` → `7861:7860` in `docker-compose.yml`.
+
+**Qdrant connection refused in a flow:**
+Make sure the Qdrant URL in the component matches your Global Variable: `http://qdrant:6333` (inside Docker) or `http://localhost:6333` (if running Langflow without Docker).
+
+**"API key not found" error:**
+Re-check **Settings → Global Variables** — the variable name must match exactly (case-sensitive).
+
+**Custom component not appearing:**
+After uploading, refresh the page. Components appear under **Custom Components** at the bottom of the sidebar panel.
+
+**Embedding dimension mismatch after changing models:**
+Delete the Qdrant collection in the vector store component and re-ingest your documents. Different embedding models produce vectors of different dimensions.
+
+---
+
+## Reference Application
+
+The production app this workshop is based on lives in `../workshop-agentic-rag/`. It uses the same Qdrant + LLM stack but wraps everything in a Chainlit chat UI with multi-user support, PostgreSQL persistence, and a full REST API. The custom components in `custom_components/` are taken directly from that app.

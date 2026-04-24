@@ -26,12 +26,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-File-cAtT9{œdataTypeœ:œFileœ,œidœ:œFile-cAtT9œ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-SplitText-PSDnc{œfieldNameœ:œdata_inputsœ,œidœ:œSplitText-PSDncœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-File-cAtT9{\u0153dataType\u0153:\u0153File\u0153,\u0153id\u0153:\u0153File-cAtT9\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-SplitText-PSDnc{\u0153fieldName\u0153:\u0153data_inputs\u0153,\u0153id\u0153:\u0153SplitText-PSDnc\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "File-cAtT9",
-        "sourceHandle": "{œdataTypeœ:œFileœ,œidœ:œFile-cAtT9œ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153File\u0153,\u0153id\u0153:\u0153File-cAtT9\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "SplitText-PSDnc",
-        "targetHandle": "{œfieldNameœ:œdata_inputsœ,œidœ:œSplitText-PSDncœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153data_inputs\u0153,\u0153id\u0153:\u0153SplitText-PSDnc\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -56,12 +56,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-SplitText-PSDnc{œdataTypeœ:œSplitTextœ,œidœ:œSplitText-PSDncœ,œnameœ:œdataframeœ,œoutput_typesœ:[œTableœ]}-QdrantVectorStoreComponent-vrQTt{œfieldNameœ:œingest_dataœ,œidœ:œQdrantVectorStoreComponent-vrQTtœ,œinputTypesœ:[œDataœ,œDataFrameœ,œTableœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-SplitText-PSDnc{\u0153dataType\u0153:\u0153SplitText\u0153,\u0153id\u0153:\u0153SplitText-PSDnc\u0153,\u0153name\u0153:\u0153dataframe\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}-QdrantVectorStoreComponent-vrQTt{\u0153fieldName\u0153:\u0153ingest_data\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-vrQTt\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153DataFrame\u0153,\u0153Table\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "SplitText-PSDnc",
-        "sourceHandle": "{œdataTypeœ:œSplitTextœ,œidœ:œSplitText-PSDncœ,œnameœ:œdataframeœ,œoutput_typesœ:[œTableœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153SplitText\u0153,\u0153id\u0153:\u0153SplitText-PSDnc\u0153,\u0153name\u0153:\u0153dataframe\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}",
         "target": "QdrantVectorStoreComponent-vrQTt",
-        "targetHandle": "{œfieldNameœ:œingest_dataœ,œidœ:œQdrantVectorStoreComponent-vrQTtœ,œinputTypesœ:[œDataœ,œDataFrameœ,œTableœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153ingest_data\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-vrQTt\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153DataFrame\u0153,\u0153Table\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -84,12 +84,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-OpenAIEmbeddings-OKrca{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-OKrcaœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}-QdrantVectorStoreComponent-vrQTt{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-vrQTtœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-OpenAIEmbeddings-OKrca{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-OKrca\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}-QdrantVectorStoreComponent-vrQTt{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-vrQTt\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "OpenAIEmbeddings-OKrca",
-        "sourceHandle": "{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-OKrcaœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-OKrca\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}",
         "target": "QdrantVectorStoreComponent-vrQTt",
-        "targetHandle": "{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-vrQTtœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-vrQTt\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -112,12 +112,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-OpenAIEmbeddings-OKrca{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-OKrcaœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}-QdrantVectorStoreComponent-qeo3W{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-OpenAIEmbeddings-OKrca{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-OKrca\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}-QdrantVectorStoreComponent-qeo3W{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "OpenAIEmbeddings-OKrca",
-        "sourceHandle": "{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-OKrcaœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-OKrca\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}",
         "target": "QdrantVectorStoreComponent-qeo3W",
-        "targetHandle": "{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -140,12 +140,12 @@
             "type": "query"
           }
         },
-        "id": "reactflow__edge-ChatInput-IiaWn{œdataTypeœ:œChatInputœ,œidœ:œChatInput-IiaWnœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-QdrantVectorStoreComponent-qeo3W{œfieldNameœ:œsearch_queryœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œinputTypesœ:[œMessageœ],œtypeœ:œqueryœ}",
+        "id": "reactflow__edge-ChatInput-IiaWn{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-IiaWn\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-QdrantVectorStoreComponent-qeo3W{\u0153fieldName\u0153:\u0153search_query\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153query\u0153}",
         "selected": false,
         "source": "ChatInput-IiaWn",
-        "sourceHandle": "{œdataTypeœ:œChatInputœ,œidœ:œChatInput-IiaWnœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-IiaWn\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "QdrantVectorStoreComponent-qeo3W",
-        "targetHandle": "{œfieldNameœ:œsearch_queryœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œinputTypesœ:[œMessageœ],œtypeœ:œqueryœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153search_query\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153query\u0153}"
       },
       {
         "animated": false,
@@ -169,12 +169,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-QdrantVectorStoreComponent-qeo3W{œdataTypeœ:œQdrantVectorStoreComponentœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œnameœ:œsearch_resultsœ,œoutput_typesœ:[œJSONœ]}-ParseData-jS7fZ{œfieldNameœ:œdataœ,œidœ:œParseData-jS7fZœ,œinputTypesœ:[œDataœ,œJSONœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-QdrantVectorStoreComponent-qeo3W{\u0153dataType\u0153:\u0153QdrantVectorStoreComponent\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153name\u0153:\u0153search_results\u0153,\u0153output_types\u0153:[\u0153JSON\u0153]}-ParseData-jS7fZ{\u0153fieldName\u0153:\u0153data\u0153,\u0153id\u0153:\u0153ParseData-jS7fZ\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "QdrantVectorStoreComponent-qeo3W",
-        "sourceHandle": "{œdataTypeœ:œQdrantVectorStoreComponentœ,œidœ:œQdrantVectorStoreComponent-qeo3Wœ,œnameœ:œsearch_resultsœ,œoutput_typesœ:[œJSONœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153QdrantVectorStoreComponent\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-qeo3W\u0153,\u0153name\u0153:\u0153search_results\u0153,\u0153output_types\u0153:[\u0153JSON\u0153]}",
         "target": "ParseData-jS7fZ",
-        "targetHandle": "{œfieldNameœ:œdataœ,œidœ:œParseData-jS7fZœ,œinputTypesœ:[œDataœ,œJSONœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153data\u0153,\u0153id\u0153:\u0153ParseData-jS7fZ\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -197,12 +197,12 @@
             "type": "str"
           }
         },
-        "id": "reactflow__edge-ParseData-jS7fZ{œdataTypeœ:œParseDataœ,œidœ:œParseData-jS7fZœ,œnameœ:œtextœ,œoutput_typesœ:[œMessageœ]}-Prompt Template-hfGcl{œfieldNameœ:œcontextœ,œidœ:œPrompt Template-hfGclœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "id": "reactflow__edge-ParseData-jS7fZ{\u0153dataType\u0153:\u0153ParseData\u0153,\u0153id\u0153:\u0153ParseData-jS7fZ\u0153,\u0153name\u0153:\u0153text\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Prompt Template-hfGcl{\u0153fieldName\u0153:\u0153context\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
         "source": "ParseData-jS7fZ",
-        "sourceHandle": "{œdataTypeœ:œParseDataœ,œidœ:œParseData-jS7fZœ,œnameœ:œtextœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153ParseData\u0153,\u0153id\u0153:\u0153ParseData-jS7fZ\u0153,\u0153name\u0153:\u0153text\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "Prompt Template-hfGcl",
-        "targetHandle": "{œfieldNameœ:œcontextœ,œidœ:œPrompt Template-hfGclœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153context\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -225,12 +225,12 @@
             "type": "str"
           }
         },
-        "id": "reactflow__edge-ChatInput-IiaWn{œdataTypeœ:œChatInputœ,œidœ:œChatInput-IiaWnœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-Prompt Template-hfGcl{œfieldNameœ:œquestionœ,œidœ:œPrompt Template-hfGclœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "id": "reactflow__edge-ChatInput-IiaWn{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-IiaWn\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Prompt Template-hfGcl{\u0153fieldName\u0153:\u0153question\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
         "source": "ChatInput-IiaWn",
-        "sourceHandle": "{œdataTypeœ:œChatInputœ,œidœ:œChatInput-IiaWnœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-IiaWn\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "Prompt Template-hfGcl",
-        "targetHandle": "{œfieldNameœ:œquestionœ,œidœ:œPrompt Template-hfGclœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153question\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -253,12 +253,12 @@
             "type": "str"
           }
         },
-        "id": "reactflow__edge-Prompt Template-hfGcl{œdataTypeœ:œPrompt Templateœ,œidœ:œPrompt Template-hfGclœ,œnameœ:œpromptœ,œoutput_typesœ:[œMessageœ]}-LiteLLMProxyModel-ZBmsB{œfieldNameœ:œinput_valueœ,œidœ:œLiteLLMProxyModel-ZBmsBœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "id": "reactflow__edge-Prompt Template-hfGcl{\u0153dataType\u0153:\u0153Prompt Template\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153name\u0153:\u0153prompt\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-LiteLLMProxyModel-ZBmsB{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-ZBmsB\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
         "source": "Prompt Template-hfGcl",
-        "sourceHandle": "{œdataTypeœ:œPrompt Templateœ,œidœ:œPrompt Template-hfGclœ,œnameœ:œpromptœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153Prompt Template\u0153,\u0153id\u0153:\u0153Prompt Template-hfGcl\u0153,\u0153name\u0153:\u0153prompt\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "LiteLLMProxyModel-ZBmsB",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œLiteLLMProxyModel-ZBmsBœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-ZBmsB\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -285,12 +285,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-LiteLLMProxyModel-ZBmsB{œdataTypeœ:œLiteLLMProxyModelœ,œidœ:œLiteLLMProxyModel-ZBmsBœ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}-ChatOutput-7NDbp{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-7NDbpœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-LiteLLMProxyModel-ZBmsB{\u0153dataType\u0153:\u0153LiteLLMProxyModel\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-ZBmsB\u0153,\u0153name\u0153:\u0153text_output\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ChatOutput-7NDbp{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-7NDbp\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "LiteLLMProxyModel-ZBmsB",
-        "sourceHandle": "{œdataTypeœ:œLiteLLMProxyModelœ,œidœ:œLiteLLMProxyModel-ZBmsBœ,œnameœ:œtext_outputœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153LiteLLMProxyModel\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-ZBmsB\u0153,\u0153name\u0153:\u0153text_output\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "ChatOutput-7NDbp",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-7NDbpœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-7NDbp\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}"
       }
     ],
     "nodes": [
@@ -863,7 +863,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "doc_key": {
                 "_input_type": "MessageTextInput",
@@ -954,7 +954,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": ""
+                "value": "/app/flows/data/titanic_wiki.md"
               },
               "ignore_unspecified_files": {
                 "_input_type": "BoolInput",
@@ -1155,7 +1155,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "file",
-                "value": ""
+                "value": "/app/flows/data/titanic_wiki.md"
               },
               "pipeline": {
                 "_input_type": "DropdownInput",
@@ -1430,7 +1430,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 64
+                "value": 200
               },
               "chunk_size": {
                 "_input_type": "IntInput",
@@ -1450,7 +1450,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 512
+                "value": 1500
               },
               "clean_output": {
                 "_input_type": "BoolInput",
@@ -1568,7 +1568,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "\n"
+                "value": "\n\n"
               },
               "text_key": {
                 "_input_type": "MessageTextInput",
@@ -1961,7 +1961,7 @@
                 "dynamic": false,
                 "info": "",
                 "input_types": [],
-                "load_from_db": false,
+                "load_from_db": true,
                 "name": "openai_api_key",
                 "override_skip": false,
                 "password": true,
@@ -1971,7 +1971,7 @@
                 "title_case": false,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": ""
+                "value": "AISC_API_KEY"
               },
               "openai_api_type": {
                 "_input_type": "MessageTextInput",
@@ -2526,7 +2526,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 5
+                "value": 8
               },
               "path": {
                 "_input_type": "StrInput",
@@ -2674,7 +2674,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "http://host.docker.internal:6333"
+                "value": "http://qdrant:6333"
               }
             },
             "tool_mode": false
@@ -3025,7 +3025,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 5
+                "value": 8
               },
               "path": {
                 "_input_type": "StrInput",
@@ -3173,7 +3173,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "http://host.docker.internal:6333"
+                "value": "http://qdrant:6333"
               }
             },
             "tool_mode": false
@@ -3839,7 +3839,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "gpt-oss-120b"
+                "value": "ministral-3-14b"
               },
               "stream": {
                 "_input_type": "BoolInput",
@@ -4287,7 +4287,7 @@
         "data": {
           "id": "note-6whxS",
           "node": {
-            "description": "### Collection = your 'database'\n\nType a **Collection Name** below. Use the **same name** on both Qdrant nodes (Ingest + Query).\n\n**Tip — check existing collections first** so you don't mix different document sets:\n- Open Qdrant dashboard: http://localhost:6333/dashboard\n- Or in a terminal: `curl http://localhost:6333/collections`\n\nIf the name already exists, new chunks are *appended* (not overwritten). To start clean, choose a new name.",
+            "description": "### Collection = your 'database'\n\nType a **Collection Name** below. Use the **same name** on both Qdrant nodes (Ingest + Query).\n\n**Tip \u2014 check existing collections first** so you don't mix different document sets:\n- Open Qdrant dashboard: http://localhost:6333/dashboard\n- Or in a terminal: `curl http://localhost:6333/collections`\n\nIf the name already exists, new chunks are *appended* (not overwritten). To start clean, choose a new name.",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -4312,7 +4312,7 @@
         "data": {
           "id": "note-KVoyC",
           "node": {
-            "description": "### Shared Embeddings\n\nSame embedding model is used for **ingest** and **query** — otherwise the vectors live in different spaces and nothing will match.",
+            "description": "### Shared Embeddings\n\nSame embedding model is used for **ingest** and **query** \u2014 otherwise the vectors live in different spaces and nothing will match.",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -4382,6 +4382,31 @@
         },
         "selected": false,
         "type": "noteNode"
+      },
+      {
+        "data": {
+          "id": "note-mcp-setup",
+          "node": {
+            "description": "### Expose this flow as an MCP tool\n\n1. Run the **INGEST** branch once so the `rag_basic` Qdrant collection contains your documents.\n2. Open **Projects \u2192 MCP Server tab \u2192 Edit Tools** and make sure the `01_rag_basic` checkbox is enabled.\n3. Find your **PROJECT_ID** \u2014 either from the browser bar (`.../flows/<PROJECT_ID>/\u2026`) or from the MCP Server tab's **Auto install** sub-tab (any generated snippet contains the full URL).\n4. The MCP URL is `http://langflow:7860/api/v1/mcp/project/<PROJECT_ID>/streamable` \u2014 register this in **Settings \u2192 MCP Servers \u2192 Add MCP Server** with name `local_rag_basic` (used by Flow 05 `05_MCP_basic`).\n5. With `LANGFLOW_AUTO_LOGIN=true` (the workshop default) no API key is needed. Otherwise generate one via **Edit Auth**.",
+            "display_name": "",
+            "documentation": "",
+            "template": {
+              "backgroundColor": "amber"
+            }
+          },
+          "type": "note"
+        },
+        "id": "note-mcp-setup",
+        "measured": {
+          "height": 260,
+          "width": 420
+        },
+        "position": {
+          "x": 2850,
+          "y": 3430
+        },
+        "selected": false,
+        "type": "noteNode"
       }
     ],
     "viewport": {
@@ -4390,8 +4415,8 @@
       "zoom": 0.4945526822716588
     }
   },
-  "description": "",
-  "endpoint_name": null,
+  "description": "Basic RAG: retrieves chunks from the `rag_basic` Qdrant collection and answers the user's question from those chunks only.",
+  "endpoint_name": "rag_basic",
   "id": "684eb65b-73b9-4b9e-a6ad-86c503817460",
   "is_component": false,
   "last_tested_version": "1.9.0",

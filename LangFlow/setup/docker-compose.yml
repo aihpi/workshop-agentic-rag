@@ -11,6 +11,7 @@ services:
       - .env
     volumes:
       - langflow_data:/app/langflow
+      - ../data:/app/flows/data:ro
     depends_on:
       qdrant:
         condition: service_started

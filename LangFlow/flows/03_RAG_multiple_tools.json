@@ -26,12 +26,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-File-KzA2H{œdataTypeœ:œFileœ,œidœ:œFile-KzA2Hœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-SplitText-X2djO{œfieldNameœ:œdata_inputsœ,œidœ:œSplitText-X2djOœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-File-KzA2H{\u0153dataType\u0153:\u0153File\u0153,\u0153id\u0153:\u0153File-KzA2H\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-SplitText-X2djO{\u0153fieldName\u0153:\u0153data_inputs\u0153,\u0153id\u0153:\u0153SplitText-X2djO\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "File-KzA2H",
-        "sourceHandle": "{œdataTypeœ:œFileœ,œidœ:œFile-KzA2Hœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153File\u0153,\u0153id\u0153:\u0153File-KzA2H\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "SplitText-X2djO",
-        "targetHandle": "{œfieldNameœ:œdata_inputsœ,œidœ:œSplitText-X2djOœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153data_inputs\u0153,\u0153id\u0153:\u0153SplitText-X2djO\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -56,12 +56,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-SplitText-X2djO{œdataTypeœ:œSplitTextœ,œidœ:œSplitText-X2djOœ,œnameœ:œdataframeœ,œoutput_typesœ:[œTableœ]}-QdrantVectorStoreComponent-8W6E0{œfieldNameœ:œingest_dataœ,œidœ:œQdrantVectorStoreComponent-8W6E0œ,œinputTypesœ:[œDataœ,œDataFrameœ,œTableœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-SplitText-X2djO{\u0153dataType\u0153:\u0153SplitText\u0153,\u0153id\u0153:\u0153SplitText-X2djO\u0153,\u0153name\u0153:\u0153dataframe\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}-QdrantVectorStoreComponent-8W6E0{\u0153fieldName\u0153:\u0153ingest_data\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-8W6E0\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153DataFrame\u0153,\u0153Table\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "SplitText-X2djO",
-        "sourceHandle": "{œdataTypeœ:œSplitTextœ,œidœ:œSplitText-X2djOœ,œnameœ:œdataframeœ,œoutput_typesœ:[œTableœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153SplitText\u0153,\u0153id\u0153:\u0153SplitText-X2djO\u0153,\u0153name\u0153:\u0153dataframe\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}",
         "target": "QdrantVectorStoreComponent-8W6E0",
-        "targetHandle": "{œfieldNameœ:œingest_dataœ,œidœ:œQdrantVectorStoreComponent-8W6E0œ,œinputTypesœ:[œDataœ,œDataFrameœ,œTableœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153ingest_data\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-8W6E0\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153DataFrame\u0153,\u0153Table\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -84,12 +84,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-OpenAIEmbeddings-hYrUk{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-hYrUkœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}-QdrantVectorStoreComponent-8W6E0{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-8W6E0œ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-OpenAIEmbeddings-hYrUk{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-hYrUk\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}-QdrantVectorStoreComponent-8W6E0{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-8W6E0\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "OpenAIEmbeddings-hYrUk",
-        "sourceHandle": "{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-hYrUkœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-hYrUk\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}",
         "target": "QdrantVectorStoreComponent-8W6E0",
-        "targetHandle": "{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-8W6E0œ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-8W6E0\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -112,12 +112,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-OpenAIEmbeddings-hYrUk{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-hYrUkœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}-QdrantVectorStoreComponent-GT1se{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-GT1seœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-OpenAIEmbeddings-hYrUk{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-hYrUk\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}-QdrantVectorStoreComponent-GT1se{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-GT1se\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "OpenAIEmbeddings-hYrUk",
-        "sourceHandle": "{œdataTypeœ:œOpenAIEmbeddingsœ,œidœ:œOpenAIEmbeddings-hYrUkœ,œnameœ:œembeddingsœ,œoutput_typesœ:[œEmbeddingsœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153OpenAIEmbeddings\u0153,\u0153id\u0153:\u0153OpenAIEmbeddings-hYrUk\u0153,\u0153name\u0153:\u0153embeddings\u0153,\u0153output_types\u0153:[\u0153Embeddings\u0153]}",
         "target": "QdrantVectorStoreComponent-GT1se",
-        "targetHandle": "{œfieldNameœ:œembeddingœ,œidœ:œQdrantVectorStoreComponent-GT1seœ,œinputTypesœ:[œEmbeddingsœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153embedding\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-GT1se\u0153,\u0153inputTypes\u0153:[\u0153Embeddings\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -140,12 +140,12 @@
             "type": "str"
           }
         },
-        "id": "reactflow__edge-ChatInput-sCcMO{œdataTypeœ:œChatInputœ,œidœ:œChatInput-sCcMOœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}-Agent-WDJSh{œfieldNameœ:œinput_valueœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "id": "reactflow__edge-ChatInput-sCcMO{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-sCcMO\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-WDJSh{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
         "source": "ChatInput-sCcMO",
-        "sourceHandle": "{œdataTypeœ:œChatInputœ,œidœ:œChatInput-sCcMOœ,œnameœ:œmessageœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-sCcMO\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "Agent-WDJSh",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -168,12 +168,12 @@
             "type": "model"
           }
         },
-        "id": "reactflow__edge-LiteLLMProxyModel-r4Dgj{œdataTypeœ:œLiteLLMProxyModelœ,œidœ:œLiteLLMProxyModel-r4Dgjœ,œnameœ:œmodel_outputœ,œoutput_typesœ:[œLanguageModelœ]}-Agent-WDJSh{œfieldNameœ:œmodelœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œLanguageModelœ],œtypeœ:œmodelœ}",
+        "id": "reactflow__edge-LiteLLMProxyModel-r4Dgj{\u0153dataType\u0153:\u0153LiteLLMProxyModel\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-r4Dgj\u0153,\u0153name\u0153:\u0153model_output\u0153,\u0153output_types\u0153:[\u0153LanguageModel\u0153]}-Agent-WDJSh{\u0153fieldName\u0153:\u0153model\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153LanguageModel\u0153],\u0153type\u0153:\u0153model\u0153}",
         "selected": false,
         "source": "LiteLLMProxyModel-r4Dgj",
-        "sourceHandle": "{œdataTypeœ:œLiteLLMProxyModelœ,œidœ:œLiteLLMProxyModel-r4Dgjœ,œnameœ:œmodel_outputœ,œoutput_typesœ:[œLanguageModelœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153LiteLLMProxyModel\u0153,\u0153id\u0153:\u0153LiteLLMProxyModel-r4Dgj\u0153,\u0153name\u0153:\u0153model_output\u0153,\u0153output_types\u0153:[\u0153LanguageModel\u0153]}",
         "target": "Agent-WDJSh",
-        "targetHandle": "{œfieldNameœ:œmodelœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œLanguageModelœ],œtypeœ:œmodelœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153model\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153LanguageModel\u0153],\u0153type\u0153:\u0153model\u0153}"
       },
       {
         "animated": false,
@@ -196,12 +196,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-QdrantVectorStoreComponent-GT1se{œdataTypeœ:œQdrantVectorStoreComponentœ,œidœ:œQdrantVectorStoreComponent-GT1seœ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}-Agent-WDJSh{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-QdrantVectorStoreComponent-GT1se{\u0153dataType\u0153:\u0153QdrantVectorStoreComponent\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-GT1se\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}-Agent-WDJSh{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "QdrantVectorStoreComponent-GT1se",
-        "sourceHandle": "{œdataTypeœ:œQdrantVectorStoreComponentœ,œidœ:œQdrantVectorStoreComponent-GT1seœ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153QdrantVectorStoreComponent\u0153,\u0153id\u0153:\u0153QdrantVectorStoreComponent-GT1se\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}",
         "target": "Agent-WDJSh",
-        "targetHandle": "{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -228,12 +228,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-Agent-WDJSh{œdataTypeœ:œAgentœ,œidœ:œAgent-WDJShœ,œnameœ:œresponseœ,œoutput_typesœ:[œMessageœ]}-ChatOutput-l6FSc{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-l6FScœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-Agent-WDJSh{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ChatOutput-l6FSc{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-l6FSc\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "Agent-WDJSh",
-        "sourceHandle": "{œdataTypeœ:œAgentœ,œidœ:œAgent-WDJShœ,œnameœ:œresponseœ,œoutput_typesœ:[œMessageœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
         "target": "ChatOutput-l6FSc",
-        "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-l6FScœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-l6FSc\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -256,12 +256,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-CalculatorComponent-1Qse9{œdataTypeœ:œCalculatorComponentœ,œidœ:œCalculatorComponent-1Qse9œ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}-Agent-WDJSh{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-CalculatorComponent-1Qse9{\u0153dataType\u0153:\u0153CalculatorComponent\u0153,\u0153id\u0153:\u0153CalculatorComponent-1Qse9\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}-Agent-WDJSh{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "CalculatorComponent-1Qse9",
-        "sourceHandle": "{œdataTypeœ:œCalculatorComponentœ,œidœ:œCalculatorComponent-1Qse9œ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153CalculatorComponent\u0153,\u0153id\u0153:\u0153CalculatorComponent-1Qse9\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}",
         "target": "Agent-WDJSh",
-        "targetHandle": "{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}"
       },
       {
         "animated": false,
@@ -284,12 +284,12 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-TavilySearchComponent-azCgu{œdataTypeœ:œTavilySearchComponentœ,œidœ:œTavilySearchComponent-azCguœ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}-Agent-WDJSh{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}",
+        "id": "reactflow__edge-TavilySearchComponent-azCgu{\u0153dataType\u0153:\u0153TavilySearchComponent\u0153,\u0153id\u0153:\u0153TavilySearchComponent-azCgu\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}-Agent-WDJSh{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
         "source": "TavilySearchComponent-azCgu",
-        "sourceHandle": "{œdataTypeœ:œTavilySearchComponentœ,œidœ:œTavilySearchComponent-azCguœ,œnameœ:œcomponent_as_toolœ,œoutput_typesœ:[œToolœ]}",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153TavilySearchComponent\u0153,\u0153id\u0153:\u0153TavilySearchComponent-azCgu\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}",
         "target": "Agent-WDJSh",
-        "targetHandle": "{œfieldNameœ:œtoolsœ,œidœ:œAgent-WDJShœ,œinputTypesœ:[œToolœ],œtypeœ:œotherœ}"
+        "targetHandle": "{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-WDJSh\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}"
       }
     ],
     "nodes": [
@@ -844,7 +844,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "doc_key": {
                 "_input_type": "MessageTextInput",
@@ -935,7 +935,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": ""
+                "value": "/app/flows/data/titanic_wiki.md"
               },
               "ignore_unspecified_files": {
                 "_input_type": "BoolInput",
@@ -1134,7 +1134,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "file",
-                "value": ""
+                "value": "/app/flows/data/titanic_wiki.md"
               },
               "pipeline": {
                 "_input_type": "DropdownInput",
@@ -1406,7 +1406,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 64
+                "value": 200
               },
               "chunk_size": {
                 "_input_type": "IntInput",
@@ -1426,7 +1426,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 512
+                "value": 1500
               },
               "clean_output": {
                 "_input_type": "BoolInput",
@@ -1544,7 +1544,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "\n"
+                "value": "\n\n"
               },
               "text_key": {
                 "_input_type": "MessageTextInput",
@@ -1938,7 +1938,7 @@
                 "dynamic": false,
                 "info": "",
                 "input_types": [],
-                "load_from_db": false,
+                "load_from_db": true,
                 "name": "openai_api_key",
                 "override_skip": false,
                 "password": true,
@@ -1948,7 +1948,7 @@
                 "title_case": false,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": ""
+                "value": "AISC_API_KEY"
               },
               "openai_api_type": {
                 "_input_type": "MessageTextInput",
@@ -2503,7 +2503,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 5
+                "value": 8
               },
               "path": {
                 "_input_type": "StrInput",
@@ -2651,7 +2651,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "http://host.docker.internal:6333"
+                "value": "http://qdrant:6333"
               }
             },
             "tool_mode": false
@@ -2791,7 +2791,7 @@
                 "show": true,
                 "title_case": false,
                 "type": "code",
-                "value": "from langchain_community.vectorstores import Qdrant\nfrom langchain_core.embeddings import Embeddings\n\nfrom lfx.base.vectorstores.model import LCVectorStoreComponent, check_cached_vector_store\nfrom lfx.helpers.data import docs_to_data\nfrom lfx.io import (\n    BoolInput,\n    DropdownInput,\n    HandleInput,\n    IntInput,\n    Output,\n    QueryInput,\n    SecretStrInput,\n    StrInput,\n)\nfrom lfx.schema.data import Data\n\n\nclass QdrantVectorStoreComponent(LCVectorStoreComponent):\n    \"\"\"Qdrant tool-mode variant: search_query is REQUIRED so the agent is\n    forced to supply it in tool calls (default empty string would let weak\n    tool-calling models skip the argument).\"\"\"\n\n    display_name = \"Qdrant\"\n    description = (\n        \"Search a private document collection in Qdrant with a vector \"\n        \"similarity query. Returns the most relevant text chunks.\"\n    )\n    icon = \"Qdrant\"\n\n    # Expose only `search_documents` as a tool. The base class also defines an\n    # `as_dataframe` output, which ComponentToolkit would otherwise surface as\n    # a second tool with the same schema — that confuses the agent.\n    outputs = [\n        Output(\n            display_name=\"Search Results\",\n            name=\"search_results\",\n            method=\"search_documents\",\n        ),\n    ]\n\n    inputs = [\n        StrInput(name=\"collection_name\", display_name=\"Collection Name\", required=True),\n        StrInput(name=\"host\", display_name=\"Host\", value=\"localhost\", advanced=True),\n        IntInput(name=\"port\", display_name=\"Port\", value=6333, advanced=True),\n        IntInput(name=\"grpc_port\", display_name=\"gRPC Port\", value=6334, advanced=True),\n        SecretStrInput(name=\"api_key\", display_name=\"Qdrant API Key\", advanced=True),\n        StrInput(name=\"prefix\", display_name=\"Prefix\", advanced=True),\n        IntInput(name=\"timeout\", display_name=\"Timeout\", advanced=True),\n        StrInput(name=\"path\", display_name=\"Path\", advanced=True),\n        StrInput(name=\"url\", display_name=\"URL\", advanced=True),\n        DropdownInput(\n            name=\"distance_func\",\n            display_name=\"Distance Function\",\n            options=[\"Cosine\", \"Euclidean\", \"Dot Product\"],\n            value=\"Cosine\",\n            advanced=True,\n        ),\n        StrInput(name=\"content_payload_key\", display_name=\"Content Payload Key\", value=\"page_content\", advanced=True),\n        StrInput(name=\"metadata_payload_key\", display_name=\"Metadata Payload Key\", value=\"metadata\", advanced=True),\n        HandleInput(\n            name=\"ingest_data\",\n            display_name=\"Ingest Data\",\n            input_types=[\"Data\", \"DataFrame\", \"Table\"],\n            is_list=True,\n        ),\n        QueryInput(\n            name=\"search_query\",\n            display_name=\"Search Query\",\n            info=(\n                \"The text to vector-search against the Qdrant collection. \"\n                \"Must be a non-empty string of content keywords taken from \"\n                \"the user's question.\"\n            ),\n            placeholder=\"Enter a query...\",\n            tool_mode=True,\n            required=True,\n        ),\n        BoolInput(\n            name=\"should_cache_vector_store\",\n            display_name=\"Cache Vector Store\",\n            value=True,\n            advanced=True,\n            info=\"If True, the vector store will be cached for the current build of the component.\",\n        ),\n        HandleInput(name=\"embedding\", display_name=\"Embedding\", input_types=[\"Embeddings\"]),\n        IntInput(\n            name=\"number_of_results\",\n            display_name=\"Number of Results\",\n            info=\"Number of results to return.\",\n            value=4,\n            advanced=True,\n        ),\n    ]\n\n    @check_cached_vector_store\n    def build_vector_store(self) -> Qdrant:\n        qdrant_kwargs = {\n            \"collection_name\": self.collection_name,\n            \"content_payload_key\": self.content_payload_key,\n            \"metadata_payload_key\": self.metadata_payload_key,\n        }\n\n        server_kwargs = {\n            \"host\": self.host or None,\n            \"port\": int(self.port),\n            \"grpc_port\": int(self.grpc_port),\n            \"api_key\": self.api_key,\n            \"prefix\": self.prefix,\n            \"timeout\": int(self.timeout) if self.timeout else None,\n            \"path\": self.path or None,\n            \"url\": self.url or None,\n        }\n\n        server_kwargs = {k: v for k, v in server_kwargs.items() if v is not None}\n\n        self.ingest_data = self._prepare_ingest_data()\n\n        documents = []\n        for _input in self.ingest_data or []:\n            if isinstance(_input, Data):\n                documents.append(_input.to_lc_document())\n            else:\n                documents.append(_input)\n\n        if not isinstance(self.embedding, Embeddings):\n            msg = \"Invalid embedding object\"\n            raise TypeError(msg)\n\n        if documents:\n            qdrant = Qdrant.from_documents(documents, embedding=self.embedding, **qdrant_kwargs, **server_kwargs)\n        else:\n            from qdrant_client import QdrantClient\n\n            client = QdrantClient(**server_kwargs)\n            qdrant = Qdrant(embeddings=self.embedding, client=client, **qdrant_kwargs)\n\n        return qdrant\n\n    def search_documents(self) -> list[Data]:\n        vector_store = self.build_vector_store()\n\n        if self.search_query and isinstance(self.search_query, str) and self.search_query.strip():\n            docs = vector_store.similarity_search(\n                query=self.search_query,\n                k=self.number_of_results,\n            )\n\n            data = docs_to_data(docs)\n            self.status = data\n            return data\n        return []\n"
+                "value": "from langchain_community.vectorstores import Qdrant\nfrom langchain_core.embeddings import Embeddings\n\nfrom lfx.base.vectorstores.model import LCVectorStoreComponent, check_cached_vector_store\nfrom lfx.helpers.data import docs_to_data\nfrom lfx.io import (\n    BoolInput,\n    DropdownInput,\n    HandleInput,\n    IntInput,\n    Output,\n    QueryInput,\n    SecretStrInput,\n    StrInput,\n)\nfrom lfx.schema.data import Data\n\n\nclass QdrantVectorStoreComponent(LCVectorStoreComponent):\n    \"\"\"Qdrant tool-mode variant: search_query is REQUIRED so the agent is\n    forced to supply it in tool calls (default empty string would let weak\n    tool-calling models skip the argument).\"\"\"\n\n    display_name = \"Qdrant\"\n    description = (\n        \"Search a private document collection in Qdrant with a vector \"\n        \"similarity query. Returns the most relevant text chunks.\"\n    )\n    icon = \"Qdrant\"\n\n    # Expose only `search_documents` as a tool. The base class also defines an\n    # `as_dataframe` output, which ComponentToolkit would otherwise surface as\n    # a second tool with the same schema \u2014 that confuses the agent.\n    outputs = [\n        Output(\n            display_name=\"Search Results\",\n            name=\"search_results\",\n            method=\"search_documents\",\n        ),\n    ]\n\n    inputs = [\n        StrInput(name=\"collection_name\", display_name=\"Collection Name\", required=True),\n        StrInput(name=\"host\", display_name=\"Host\", value=\"localhost\", advanced=True),\n        IntInput(name=\"port\", display_name=\"Port\", value=6333, advanced=True),\n        IntInput(name=\"grpc_port\", display_name=\"gRPC Port\", value=6334, advanced=True),\n        SecretStrInput(name=\"api_key\", display_name=\"Qdrant API Key\", advanced=True),\n        StrInput(name=\"prefix\", display_name=\"Prefix\", advanced=True),\n        IntInput(name=\"timeout\", display_name=\"Timeout\", advanced=True),\n        StrInput(name=\"path\", display_name=\"Path\", advanced=True),\n        StrInput(name=\"url\", display_name=\"URL\", advanced=True),\n        DropdownInput(\n            name=\"distance_func\",\n            display_name=\"Distance Function\",\n            options=[\"Cosine\", \"Euclidean\", \"Dot Product\"],\n            value=\"Cosine\",\n            advanced=True,\n        ),\n        StrInput(name=\"content_payload_key\", display_name=\"Content Payload Key\", value=\"page_content\", advanced=True),\n        StrInput(name=\"metadata_payload_key\", display_name=\"Metadata Payload Key\", value=\"metadata\", advanced=True),\n        HandleInput(\n            name=\"ingest_data\",\n            display_name=\"Ingest Data\",\n            input_types=[\"Data\", \"DataFrame\", \"Table\"],\n            is_list=True,\n        ),\n        QueryInput(\n            name=\"search_query\",\n            display_name=\"Search Query\",\n            info=(\n                \"The text to vector-search against the Qdrant collection. \"\n                \"Must be a non-empty string of content keywords taken from \"\n                \"the user's question.\"\n            ),\n            placeholder=\"Enter a query...\",\n            tool_mode=True,\n            required=True,\n        ),\n        BoolInput(\n            name=\"should_cache_vector_store\",\n            display_name=\"Cache Vector Store\",\n            value=True,\n            advanced=True,\n            info=\"If True, the vector store will be cached for the current build of the component.\",\n        ),\n        HandleInput(name=\"embedding\", display_name=\"Embedding\", input_types=[\"Embeddings\"]),\n        IntInput(\n            name=\"number_of_results\",\n            display_name=\"Number of Results\",\n            info=\"Number of results to return.\",\n            value=4,\n            advanced=True,\n        ),\n    ]\n\n    @check_cached_vector_store\n    def build_vector_store(self) -> Qdrant:\n        qdrant_kwargs = {\n            \"collection_name\": self.collection_name,\n            \"content_payload_key\": self.content_payload_key,\n            \"metadata_payload_key\": self.metadata_payload_key,\n        }\n\n        server_kwargs = {\n            \"host\": self.host or None,\n            \"port\": int(self.port),\n            \"grpc_port\": int(self.grpc_port),\n            \"api_key\": self.api_key,\n            \"prefix\": self.prefix,\n            \"timeout\": int(self.timeout) if self.timeout else None,\n            \"path\": self.path or None,\n            \"url\": self.url or None,\n        }\n\n        server_kwargs = {k: v for k, v in server_kwargs.items() if v is not None}\n\n        self.ingest_data = self._prepare_ingest_data()\n\n        documents = []\n        for _input in self.ingest_data or []:\n            if isinstance(_input, Data):\n                documents.append(_input.to_lc_document())\n            else:\n                documents.append(_input)\n\n        if not isinstance(self.embedding, Embeddings):\n            msg = \"Invalid embedding object\"\n            raise TypeError(msg)\n\n        if documents:\n            qdrant = Qdrant.from_documents(documents, embedding=self.embedding, **qdrant_kwargs, **server_kwargs)\n        else:\n            from qdrant_client import QdrantClient\n\n            client = QdrantClient(**server_kwargs)\n            qdrant = Qdrant(embeddings=self.embedding, client=client, **qdrant_kwargs)\n\n        return qdrant\n\n    def search_documents(self) -> list[Data]:\n        vector_store = self.build_vector_store()\n\n        if self.search_query and isinstance(self.search_query, str) and self.search_query.strip():\n            docs = vector_store.similarity_search(\n                query=self.search_query,\n                k=self.number_of_results,\n            )\n\n            data = docs_to_data(docs)\n            self.status = data\n            return data\n        return []\n"
               },
               "collection_name": {
                 "_input_type": "StrInput",
@@ -3137,7 +3137,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "http://host.docker.internal:6333"
+                "value": "http://qdrant:6333"
               }
             },
             "tool_mode": true
@@ -4067,7 +4067,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "You are a research assistant with access to four tools:\n\n- search_documents(search_query)  — the private document collection; your PRIMARY source for factual questions.\n- calculator(expression)          — evaluates mathematical expressions.\n- current_date()                  — returns today's date.\n- web_search(query)               — searches the public web; use only when the document collection cannot answer and the question is about facts that could plausibly live on the web.\n\nRouting rules\n1. For any factual question, call search_documents FIRST with the user's key term(s) VERBATIM — do not expand, guess, or disambiguate before seeing chunks.\n2. If the returned chunks answer the question, answer from them and cite the source filename from each chunk's metadata. Do not mix in general or web knowledge for those claims.\n3. If the chunks do not answer the question, you MAY call web_search. Mark which parts of the answer come from the web vs. the document collection.\n4. If the question contains a mathematical expression, pass it to calculator and use its result.\n5. If the question asks about \"today\", \"now\", or the current date, call current_date.\n6. You may combine tools (e.g., look up a figure in the docs, then do arithmetic on it with the calculator).\n7. For greetings or meta-questions, answer directly without any tool call.\n8. Never invent facts. If nothing fits, say so.\n"
+                "value": "You are a research assistant with access to four tools:\n\n- search_documents(search_query)  \u2014 the private document collection; your PRIMARY source for factual questions.\n- calculator(expression)          \u2014 evaluates mathematical expressions.\n- current_date()                  \u2014 returns today's date.\n- web_search(query)               \u2014 searches the public web; use only when the document collection cannot answer and the question is about facts that could plausibly live on the web.\n\nRouting rules\n1. For any factual question, call search_documents FIRST with the user's key term(s) VERBATIM \u2014 do not expand, guess, or disambiguate before seeing chunks.\n2. If the returned chunks answer the question, answer from them and cite the source filename from each chunk's metadata. Do not mix in general or web knowledge for those claims.\n3. If the chunks do not answer the question, you MAY call web_search. Mark which parts of the answer come from the web vs. the document collection.\n4. If the question contains a mathematical expression, pass it to calculator and use its result.\n5. If the question asks about \"today\", \"now\", or the current date, call current_date.\n6. You may combine tools (e.g., look up a figure in the docs, then do arithmetic on it with the calculator).\n7. For greetings or meta-questions, answer directly without any tool call.\n8. Never invent facts. If nothing fits, say so.\n"
               },
               "tools": {
                 "_input_type": "HandleInput",
@@ -4435,7 +4435,7 @@
         "data": {
           "id": "note-2sXDe",
           "node": {
-            "description": "### 1) INGEST (run once per document set)\n\nSame shape as **01 Basic RAG** — upload documents, chunk them, embed each chunk with *octen-embedding-8b* (4096-d), and store in Qdrant. Press ▶ on the **Qdrant (Ingest)** node.\n\nWrites to its **own** collection `rag_agentic` (separate from flow 01's `rag_basic`) so the two workshops don't step on each other. If you want to reuse the same documents, upload them again here.",
+            "description": "### 1) INGEST (run once per document set)\n\nSame shape as **01 Basic RAG** \u2014 upload documents, chunk them, embed each chunk with *octen-embedding-8b* (4096-d), and store in Qdrant. Press \u25b6 on the **Qdrant (Ingest)** node.\n\nWrites to its **own** collection `rag_agentic` (separate from flow 01's `rag_basic`) so the two workshops don't step on each other. If you want to reuse the same documents, upload them again here.",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -4462,7 +4462,7 @@
         "data": {
           "id": "note-suU09",
           "node": {
-            "description": "### 2) AGENT loop\n\nThe **Agent** gets the user message *and* the Qdrant retriever as a callable **Tool**. On each turn it decides:\n\n- rewrite → call retrieve(query) → read chunks,\n- maybe retrieve again with a different phrasing,\n- or answer directly if no retrieval is needed.",
+            "description": "### 2) AGENT loop\n\nThe **Agent** gets the user message *and* the Qdrant retriever as a callable **Tool**. On each turn it decides:\n\n- rewrite \u2192 call retrieve(query) \u2192 read chunks,\n- maybe retrieve again with a different phrasing,\n- or answer directly if no retrieval is needed.",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -4489,7 +4489,7 @@
         "data": {
           "id": "note-j8s6J",
           "node": {
-            "description": "### Qdrant in **Tool mode**\n\nToggle on the node turns it into a callable *function* the Agent invokes as `search_documents(query=...)` — not a static pipeline step.",
+            "description": "### Qdrant in **Tool mode**\n\nToggle on the node turns it into a callable *function* the Agent invokes as `search_documents(query=...)` \u2014 not a static pipeline step.",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -4516,7 +4516,7 @@
         "data": {
           "id": "note-t0Q0Z",
           "node": {
-            "description": "### What changed vs 01 Basic RAG\n\n• The fixed *retrieve → Prompt → LLM* chain is gone.\n• Agent decides **when** to retrieve and **what query** to use.\n• 0 – N searches per user turn, bounded by *Max Iterations*.\n• Non-retrieval questions ('hello') no longer waste a search.",
+            "description": "### What changed vs 01 Basic RAG\n\n\u2022 The fixed *retrieve \u2192 Prompt \u2192 LLM* chain is gone.\n\u2022 Agent decides **when** to retrieve and **what query** to use.\n\u2022 0 \u2013 N searches per user turn, bounded by *Max Iterations*.\n\u2022 Non-retrieval questions ('hello') no longer waste a search.",
             "display_name": "",
             "documentation": "",
             "template": {
