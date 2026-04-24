@@ -1,0 +1,98 @@
+# GPU-backed Docling preprocessing service.
+#
+# Runs at replicas: 0 by default — scale manually around workshop hours:
+#   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=1
+#   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=0
+#
+# When replicas=0, the main app pod's upload path falls back to local
+# CPU Docling (see app/kb/ingestion_pipeline.py::_parse_pdf_remote). So
+# scaling this Deployment is the only toggle — no env changes.
+#
+# Remaining work (see FUTURE_WORK.md "GPU Docling service"):
+#   - Split into its own smaller image once CUDA is stripped from the
+#     main app image. Right now this reuses the 6 GB app image.
+#   - Automate scale-up/down (cron or app-driven via k8s API).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docling-service
+  labels:
+    app: docling-service
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: docling-service
+  template:
+    metadata:
+      labels:
+        app: docling-service
+    spec:
+      # GPU node scheduling. `accelerator=a30` pins this to A30 nodes
+      # specifically (cluster has mixed A30/A100/other). nvidia.com/gpu.present
+      # is belt-and-braces in case the A30 label gets removed.
+      # Taint toleration lets us land on GPU-tainted nodes.
+      nodeSelector:
+        accelerator: a30
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: docling
+          image: ghcr.io/aihpi/workshop-agentic-rag-docling:sha-23f1200
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "uvicorn"]
+          args:
+            - "docling_service:app"
+            - "--host=0.0.0.0"
+            - "--port=8080"
+          workingDir: /app
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: workshop-app-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docling-service
+  labels:
+    app: docling-service
+spec:
+  type: ClusterIP
+  selector:
+    app: docling-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

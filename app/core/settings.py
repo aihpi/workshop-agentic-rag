@@ -31,6 +31,12 @@ QDRANT_URL = _getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = _getenv("QDRANT_API_KEY")
 QDRANT_COLLECTION = _getenv("QDRANT_COLLECTION", "grundschutz")
 
+# Optional GPU Docling service. When set, parse_pdf POSTs PDFs to this URL
+# instead of running Docling in-process. On connect error / timeout the
+# client falls back to local Docling — so scaling the service replicas to
+# 0 reverts behavior to local CPU without any env change.
+DOCLING_SERVICE_URL = (_getenv("DOCLING_SERVICE_URL", "") or "").rstrip("/")
+
 MAX_FILE_SIZE_MB = int(_getenv("MAX_FILE_SIZE_MB", "50"))
 CHUNK_MAX_CHARS = int(_getenv("CHUNK_MAX_CHARS", "3000"))
 CHUNK_OVERLAP = int(_getenv("CHUNK_OVERLAP", "300"))

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
 import re
 from datetime import datetime, timezone
+from email.utils import formatdate, parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -16,7 +18,7 @@ import chainlit as cl
 from chainlit.auth import get_current_user
 from chainlit.input_widget import Select
 from chainlit.types import Starter
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -176,6 +178,7 @@ CITATION_SIDEBAR_TITLE = "Quellen & Belegstellen"
 CITATION_HISTORY_SIDEBAR_TITLE = "Quellen & Belegstellen (Verlauf)"
 
 
+@functools.cache
 def _allowed_source_pdf_names() -> set[str]:
     if not DATA_RAW_DIR.is_dir():
         return set()
@@ -207,6 +210,57 @@ def _resolve_source_pdf_path(file_name: str, allowed_names: set[str] | None = No
     if not file_path.is_file() or file_path.suffix.lower() != ".pdf":
         return None
     return file_path
+
+
+def _pdf_cache_response(file_path: Path, request: Request) -> Response:
+    """FileResponse for source PDFs with browser-cacheable headers.
+
+    PDFs under DATA_RAW_DIR are baked into the image; user-uploaded PDFs
+    under DATA_KB_DOCS_DIR only change when overwritten. Either way a
+    stat-based ETag is stable enough that clicking the same citation
+    twice short-circuits to 304.
+    """
+    st = file_path.stat()
+    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    last_modified = formatdate(st.st_mtime, usegmt=True)
+
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match == etag:
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=3600",
+                "Last-Modified": last_modified,
+            },
+        )
+    if_modified_since = request.headers.get("if-modified-since")
+    if if_modified_since:
+        try:
+            ims_dt = parsedate_to_datetime(if_modified_since)
+            if ims_dt is not None and int(ims_dt.timestamp()) >= int(st.st_mtime):
+                return Response(
+                    status_code=304,
+                    headers={
+                        "ETag": etag,
+                        "Cache-Control": "public, max-age=3600",
+                        "Last-Modified": last_modified,
+                    },
+                )
+        except (TypeError, ValueError):
+            pass
+
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": "inline",
+            "Cache-Control": "public, max-age=3600",
+            "ETag": etag,
+            "Last-Modified": last_modified,
+            "Accept-Ranges": "bytes",
+        },
+    )
 
 
 def _source_pdf_url(file_name: str, document_id: str | None = None) -> str:
@@ -2537,6 +2591,13 @@ async def on_app_startup() -> None:
         from fastapi import Cookie
         from chainlit.auth import authenticate_user as _auth_user
 
+        @chainlit_fastapi_app.get("/health")
+        async def health_check():
+            """Lightweight liveness/readiness probe. Unauthenticated on purpose:
+            kubelet has no Chainlit session cookie. Returns 200 as soon as the
+            ASGI app is serving HTTP — enough to gate Service traffic on."""
+            return {"status": "ok"}
+
         @chainlit_fastapi_app.get("/settings/app")
         async def serve_settings_page(access_token: str | None = Cookie(default=None)):
             if not access_token:
@@ -2565,6 +2626,7 @@ async def on_app_startup() -> None:
 
         for path in user_routes:
             _ensure_route_precedes_catch_all(chainlit_fastapi_app, path)
+        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/health")
         _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/settings/app")
         _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/admin/app")
 
@@ -2578,7 +2640,7 @@ async def on_app_startup() -> None:
         return
 
     @chainlit_fastapi_app.get("/sources/pdf/{identifier:path}")
-    async def source_pdf(identifier: str, current_user=Depends(get_current_user)):
+    async def source_pdf(identifier: str, request: Request, current_user=Depends(get_current_user)):
         if current_user is None:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -2602,11 +2664,7 @@ async def on_app_startup() -> None:
                     raise HTTPException(status_code=404, detail="Source PDF not found")
                 if not persisted.is_file() or persisted.suffix.lower() != ".pdf":
                     raise HTTPException(status_code=404, detail="Source PDF not found")
-                return FileResponse(
-                    path=str(persisted),
-                    media_type="application/pdf",
-                    headers={"Content-Disposition": "inline"},
-                )
+                return _pdf_cache_response(persisted, request)
 
         # Fallback: legacy flat-file lookup in DATA_RAW_DIR (shared Grundschutz PDF
         # and any historical citation URLs that predate the doc_id scheme).
@@ -2614,11 +2672,7 @@ async def on_app_startup() -> None:
         if file_path is None:
             raise HTTPException(status_code=404, detail="Source PDF not found")
 
-        return FileResponse(
-            path=str(file_path),
-            media_type="application/pdf",
-            headers={"Content-Disposition": "inline"},
-        )
+        return _pdf_cache_response(file_path, request)
 
     @chainlit_fastapi_app.get("/sources/citations/{step_id}")
     async def source_citations(step_id: str, current_user=Depends(get_current_user)):

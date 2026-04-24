@@ -12,8 +12,9 @@ dependencies = [
     "openai-harmony>=0.0.1",
     "docling>=1.5.0",
     "bcrypt>=4.1.0",
+    "httpx>=0.27.0",
 ]
 
 [tool.setuptools]
-packages = ["core", "chat", "kb", "api", "langflow", "langflow.components"]
+packages = ["core", "chat", "kb", "api", "cli", "langflow", "langflow.components"]
 py-modules = ["app"]

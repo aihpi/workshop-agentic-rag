@@ -7,13 +7,18 @@ Registered by `register_user_api_routes()` from inside the Chainlit
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 from chainlit.auth import get_current_user
-from fastapi import Depends, File, HTTPException, UploadFile
+from fastapi import Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -23,16 +28,23 @@ from kb.ingestion_pipeline import (
     drop_collection,
     ingest_sections,
     parse_file,
+    validate_pdf_upload,
 )
+from chat.chat_history import hard_delete_user_data
 from chat.native_chat import (
     accept_terms,
+    create_user_with_password,
+    delete_user_cascade,
     get_terms_status,
     get_user_role_status,
     list_all_users,
     update_user_admin_fields,
 )
+
+import bcrypt
 from api.prompt_generator import generate_starters, generate_system_prompt
 from core.settings import (
+    CHAINLIT_AUTH_USERNAME,
     CHAT_DB_PATH,
     DATA_KB_DOCS_DIR,
     DATABASE_URL,
@@ -130,6 +142,13 @@ class UserAdminUpdateRequest(BaseModel):
     role: str | None = Field(default=None, pattern="^(user|admin)$")
 
 
+class UserCreateRequest(BaseModel):
+    identifier: str = Field(..., min_length=1, max_length=120)
+    password: str = Field(..., min_length=8, max_length=200)
+    email: str | None = Field(default=None, max_length=200)
+    role: str | None = Field(default="user", pattern="^(user|admin)$")
+
+
 class TermsAcceptRequest(BaseModel):
     version: str = Field(..., min_length=1, max_length=120)
 
@@ -162,6 +181,59 @@ async def _require_admin(current_user: Any) -> str:
     if pair[1] == "blocked":
         raise HTTPException(status_code=403, detail="Konto gesperrt")
     return identifier
+
+
+def is_env_admin(identifier: str) -> bool:
+    """True if this identifier is the env-admin whose credentials come
+    from CHAINLIT_AUTH_USERNAME/PASSWORD. Deleting that user is pointless
+    because the auth callback's fallback re-creates it on the next login,
+    and the re-created row has no accepted-terms / KBs, which just
+    confuses the operator."""
+    return bool(CHAINLIT_AUTH_USERNAME) and identifier == CHAINLIT_AUTH_USERNAME
+
+
+async def hard_delete_user(identifier: str) -> dict[str, Any]:
+    """Orchestrate a full user teardown across Qdrant, disk, SQLite, Postgres.
+
+    Called by both delete endpoints (DELETE /api/me, DELETE /api/admin/users/{id})
+    and by the scheduled inactivity purge CLI (app.cli.purge_inactive).
+
+    The ordering (Qdrant/disk → SQLite → Postgres) is deliberate: we need the
+    KB rows to enumerate collections+files, so drop external resources first
+    while the rows still exist; then SQLite; then the Postgres User row.
+    Partial failures leave orphaned external state but never orphaned auth
+    data — better than the reverse.
+    """
+    qdrant_collections_dropped = 0
+    pdfs_unlinked = 0
+
+    for kb in list_kbs(CHAT_DB_PATH, identifier):
+        for doc in list_documents(CHAT_DB_PATH, kb["id"]):
+            path = _persisted_doc_path(doc["id"], doc["file_name"])
+            if path.exists():
+                path.unlink(missing_ok=True)
+                pdfs_unlinked += 1
+        drop_collection(kb["qdrant_collection"])
+        qdrant_collections_dropped += 1
+
+    sqlite_counts = hard_delete_user_data(CHAT_DB_PATH, identifier)
+
+    pg_counts = {"threads": 0, "users": 0}
+    if DATABASE_URL:
+        pg_counts = await delete_user_cascade(DATABASE_URL, identifier)
+
+    logger.info(
+        "user.hard_delete identifier=%s qdrant=%d pdfs=%d sqlite=%s pg=%s",
+        identifier, qdrant_collections_dropped, pdfs_unlinked,
+        sqlite_counts, pg_counts,
+    )
+    return {
+        "identifier": identifier,
+        "qdrant_collections_dropped": qdrant_collections_dropped,
+        "pdfs_unlinked": pdfs_unlinked,
+        "sqlite": sqlite_counts,
+        "postgres": pg_counts,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -280,8 +352,41 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                 tmp.write(chunk)
             tmp_path = Path(tmp.name)
 
+        # Content-Type header is advisory (easily faked), but if the browser
+        # explicitly labelled a different type we should trust that signal
+        # and reject early — saves a magic-byte read and returns a clearer error.
+        if file.content_type and file.content_type != "application/pdf":
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=415,
+                detail=f"Content-Type {file.content_type} nicht unterstützt. Nur application/pdf.",
+            )
+
+        # Magic-byte check — the actual server-side guard. Catches renamed
+        # files (foo.exe → foo.pdf) that pass the extension check.
         try:
-            sections = parse_file(tmp_path)
+            validate_pdf_upload(tmp_path)
+        except ValueError as exc:
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=415, detail=str(exc))
+
+        try:
+            # Stage 1 — Docling parse. CPU-heavy; on OOM/timeout this is where it dies.
+            # Wrapped in asyncio.to_thread so it doesn't block the event loop —
+            # otherwise a single upload freezes chat streaming for all users.
+            t0 = time.monotonic()
+            try:
+                sections = await asyncio.to_thread(parse_file, tmp_path)
+            except Exception:
+                logger.exception(
+                    "upload.parse_failed kb_id=%s filename=%s size=%d elapsed=%.1fs",
+                    kb_id, original_name, total, time.monotonic() - t0,
+                )
+                raise
+            logger.info(
+                "upload.parse_ok kb_id=%s filename=%s sections=%d elapsed=%.1fs",
+                kb_id, original_name, len(sections) if sections else 0, time.monotonic() - t0,
+            )
             if not sections:
                 raise HTTPException(
                     status_code=422,
@@ -297,22 +402,45 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                 chunk_count=0,
             )
 
-            # Persist bytes on disk keyed by doc_id so /sources/pdf/{doc_id} can serve them.
-            # Copy (not move) so the tmp file is still around if later steps raise.
+            # Stage 2 — persist to DATA_KB_DOCS_DIR (PVC-backed in k8s). Defensive mkdir
+            # so a freshly-attached PVC or a manually-deleted dir self-heals.
             persisted_path = _persisted_doc_path(doc_row["id"], original_name)
-            shutil.copyfile(tmp_path, persisted_path)
+            try:
+                persisted_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(tmp_path, persisted_path)
+            except Exception:
+                logger.exception(
+                    "upload.persist_failed kb_id=%s doc_id=%s dest=%s",
+                    kb_id, doc_row["id"], persisted_path,
+                )
+                delete_document(CHAT_DB_PATH, doc_row["id"])
+                raise
 
             try:
                 # Point the sections at the upload's original name for citation display.
                 for section in sections:
                     section["file"] = original_name
 
-                chunk_count = await ingest_sections(
-                    sections,
-                    collection=kb["qdrant_collection"],
-                    kb_id=kb_id,
-                    document_id=doc_row["id"],
+                # Stage 3 — embed + upsert to Qdrant. Hits LiteLLM + Qdrant over network.
+                t1 = time.monotonic()
+                try:
+                    chunk_count = await ingest_sections(
+                        sections,
+                        collection=kb["qdrant_collection"],
+                        kb_id=kb_id,
+                        document_id=doc_row["id"],
+                    )
+                except Exception:
+                    logger.exception(
+                        "upload.embed_failed kb_id=%s doc_id=%s collection=%s elapsed=%.1fs",
+                        kb_id, doc_row["id"], kb["qdrant_collection"], time.monotonic() - t1,
+                    )
+                    raise
+                logger.info(
+                    "upload.embed_ok kb_id=%s doc_id=%s chunks=%d elapsed=%.1fs",
+                    kb_id, doc_row["id"], chunk_count, time.monotonic() - t1,
                 )
+
                 # Update chunk_count after ingest.
                 import sqlite3
 
@@ -498,6 +626,93 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if row is None:
             raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+        return row
+
+    @fastapi_app.delete("/api/me")
+    async def delete_own_account(
+        response: Response,
+        current_user=Depends(get_current_user),
+    ):
+        identifier = _user_id(current_user)
+        if is_env_admin(identifier):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Das Umgebungs-Admin-Konto kann nicht gelöscht werden — "
+                    "es würde beim nächsten Login automatisch neu angelegt. "
+                    "Zum Testen der Löschfunktion bitte einen regulären "
+                    "Benutzer im Admin-Bereich anlegen und damit testen."
+                ),
+            )
+        result = await hard_delete_user(identifier)
+        # Expire the Chainlit session cookie in the DELETE response itself.
+        # Without this, the client keeps a JWT whose identifier is now orphaned
+        # in Postgres — and /api/terms would still answer it (JWT signature
+        # validation doesn't re-check DB), so the terms modal flashes up and
+        # the post-login upsert re-creates the account on Accept.
+        response.delete_cookie("access_token", path="/")
+        return {"deleted": True, **result}
+
+    @fastapi_app.delete("/api/admin/users/{user_id}")
+    async def admin_delete_user(user_id: str, current_user=Depends(get_current_user)):
+        admin_identifier = await _require_admin(current_user)
+        # Resolve UUID → identifier (admin.html knows the UUID from the list).
+        target = next(
+            (u for u in await list_all_users(DATABASE_URL) if u["id"] == user_id),
+            None,
+        )
+        if target is None:
+            raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+        if target["identifier"] == admin_identifier:
+            raise HTTPException(
+                status_code=400,
+                detail="Zum Löschen des eigenen Kontos bitte /api/me verwenden.",
+            )
+        if is_env_admin(target["identifier"]):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Das Umgebungs-Admin-Konto kann nicht gelöscht werden — "
+                    "es würde beim nächsten Login automatisch neu angelegt."
+                ),
+            )
+        result = await hard_delete_user(target["identifier"])
+        return {"deleted": True, **result}
+
+    @fastapi_app.post("/api/admin/users")
+    async def admin_create_user(
+        request: UserCreateRequest,
+        current_user=Depends(get_current_user),
+    ):
+        await _require_admin(current_user)
+        identifier = request.identifier.strip()
+        if not identifier:
+            raise HTTPException(status_code=400, detail="Benutzername erforderlich")
+        if len(request.password) < 8:
+            raise HTTPException(
+                status_code=400,
+                detail="Passwort muss mindestens 8 Zeichen lang sein",
+            )
+        role = request.role or "user"
+        if role not in ("user", "admin"):
+            raise HTTPException(status_code=400, detail=f"Ungültige Rolle: {role}")
+
+        password_hash = bcrypt.hashpw(
+            request.password.encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
+
+        row = await create_user_with_password(
+            DATABASE_URL,
+            identifier,
+            password_hash,
+            email=(request.email or None),
+            role=role,
+        )
+        if row is None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Benutzer mit dieser Kennung existiert bereits: {identifier}",
+            )
         return row
 
     return [

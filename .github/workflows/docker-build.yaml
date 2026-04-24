@@ -6,6 +6,8 @@ on:
     paths:
       - Dockerfile
       - app/**
+      - data/data_docling_json_ocr/**
+      - data/data_raw/**
       - system.md
       - .github/workflows/docker-build.yaml
   workflow_dispatch:
@@ -42,5 +44,6 @@ jobs:
           from kb import user_kb, user_profile, rag_tool, ingestion_pipeline, ingest_docling
           from api import api_routes, prompt_generator
           from langflow import langflow_client
+          import docling_service
           print('imports ok')
           "
