@@ -29,6 +29,16 @@ spec:
               value: /data/data_raw
             - name: DOCLING_SERVICE_URL
               value: http://docling-service.workshop-agentic-rag.svc:8080
+            # Auto-fallback to this model when the primary (CHAT_MODEL in
+            # the sealed secret) returns 5xx/timeout. Model names aren't
+            # sensitive so this lives in plain env, not the sealed secret —
+            # change the value here and redeploy if you need a different
+            # fallback. Must be a model actually routed by the HPI LiteLLM
+            # gateway (not OpenAI-namespaced). Running text models in
+            # litellm namespace as of 2026-04-24: granite-4-h-tiny,
+            # ministral-3-14b. gpt-oss-120b + llama-3-3-70b are Pending.
+            - name: FALLBACK_CHAT_MODEL
+              value: ministral-3-14b
             # SQLite holds user KBs, settings, starters, chat history — all
             # load-bearing UI state. Default path (/app/.chainlit/chat_history.sqlite3)
             # is ephemeral; a pod restart wipes every user's KBs even though

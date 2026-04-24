@@ -2,6 +2,14 @@
 
 Running list of known gaps and follow-up work. Order ≈ priority, not strict.
 
+## Admin UI: model selection (primary + fallback)
+
+Today the primary chat model is pinned via `CHAT_MODEL` in the sealed secret and the fallback via `FALLBACK_CHAT_MODEL` as a plain deployment env. To change either, an admin has to re-seal the secret / edit the manifest, push, and wait for ArgoCD to roll — slow and requires git access.
+
+Shape: dropdowns in `/admin/app` for primary + fallback (options populated by `GET /v1/models` on the LiteLLM gateway — LiteLLM exposes this endpoint natively). Persist the admin's choice into a new `app_config` SQLite table (single row). Both `chat()` and `stream_chat()` in [app/core/llm.py](app/core/llm.py) read the persisted choice first, fall back to env, then fall back to the hard-coded default.
+
+Estimate: ~2–3 hours. Env vars stay as the bootstrap default + emergency override path.
+
 ## **P0 — GPU Docling service** (blocks multi-user upload)
 
 Current state (after 2026-04-22 demo prep): CPU Docling works in the `workshop-app` pod (16Gi mem limit), but a single 2 MB text PDF takes **~30s** to parse. With 10 workshop participants uploading concurrently we'd see three failure modes: serial queueing (~5 min wait for the last user), pod OOM (peak memory 6–8 Gi per parse × concurrent uploads trips the 16 Gi limit), and chat freeze (CPU starvation of the serving path). [k8s/docling-service.yaml](k8s/docling-service.yaml) ships the Deployment + Service skeleton with `replicas: 0` and a GPU resource request; the integration is what's missing.

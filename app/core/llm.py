@@ -4,7 +4,13 @@ from typing import Any
 
 import litellm
 
-from core.settings import CHAT_MODEL, EMBED_MODEL, LITELLM_API_KEY, LITELLM_BASE_URL
+from core.settings import (
+    CHAT_MODEL,
+    EMBED_MODEL,
+    FALLBACK_CHAT_MODEL,
+    LITELLM_API_KEY,
+    LITELLM_BASE_URL,
+)
 
 
 def _client_args() -> dict[str, Any]:
@@ -16,16 +22,28 @@ def _client_args() -> dict[str, Any]:
     return args
 
 
+def _fallback_args(primary_model: str) -> dict[str, Any]:
+    """LiteLLM's native fallback support — if set, `litellm.acompletion()`
+    automatically retries with FALLBACK_CHAT_MODEL on provider errors
+    (5xx, timeouts, connection refused). No manual try/except needed.
+    Skipped if the fallback is unset or identical to the primary."""
+    if not FALLBACK_CHAT_MODEL or FALLBACK_CHAT_MODEL == primary_model:
+        return {}
+    return {"fallbacks": [FALLBACK_CHAT_MODEL]}
+
+
 async def chat(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
     tool_choice: str | None = "auto",
     model: str | None = None,
 ):
+    primary = model or CHAT_MODEL
     payload: dict[str, Any] = {
-        "model": model or CHAT_MODEL,
+        "model": primary,
         "messages": messages,
         **_client_args(),
+        **_fallback_args(primary),
     }
     if tools:
         payload["tools"] = tools
@@ -40,6 +58,7 @@ async def stream_chat(messages: list[dict[str, Any]], tools: list[dict[str, Any]
         "messages": messages,
         "stream": True,
         **_client_args(),
+        **_fallback_args(CHAT_MODEL),
     }
     if tools:
         payload["tools"] = tools
