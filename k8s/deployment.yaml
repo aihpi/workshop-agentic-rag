@@ -6,6 +6,9 @@ metadata:
     app: workshop-app
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: workshop-app
@@ -16,16 +19,81 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/aihpi/workshop-agentic-rag:sha-4d34e93
+          image: ghcr.io/aihpi/workshop-agentic-rag:sha-23f1200
           ports:
             - containerPort: 8000
+          env:
+            - name: DATA_KB_DOCS_DIR
+              value: /data/kb_docs
+            - name: DATA_RAW_DIR
+              value: /data/data_raw
+            - name: DOCLING_SERVICE_URL
+              value: http://docling-service.workshop-agentic-rag.svc:8080
+            # Auto-fallback to this model when the primary (CHAT_MODEL in
+            # the sealed secret) returns 5xx/timeout. Model names aren't
+            # sensitive so this lives in plain env, not the sealed secret —
+            # change the value here and redeploy if you need a different
+            # fallback. Must include the `openai/` prefix so LiteLLM's SDK
+            # routes via the OpenAI-compatible proxy at LITELLM_BASE_URL
+            # instead of trying to match the bare name against its built-in
+            # provider list (which would fail: LLM Provider NOT provided).
+            # Running text models in the litellm namespace as of 2026-04-24:
+            # granite-4-h-tiny, ministral-3-14b. gpt-oss-120b + llama-3-3-70b
+            # are Pending.
+            - name: FALLBACK_CHAT_MODEL
+              value: openai/ministral-3-14b
+            # SQLite holds user KBs, settings, starters, chat history — all
+            # load-bearing UI state. Default path (/app/.chainlit/chat_history.sqlite3)
+            # is ephemeral; a pod restart wipes every user's KBs even though
+            # the PDF files on the PVC survive. Point it at the existing
+            # kb-docs PVC to make the whole picture persistent.
+            - name: CHAT_DB_PATH
+              value: /data/kb_docs/chat_history.sqlite3
           envFrom:
             - secretRef:
                 name: workshop-app-secrets
+          volumeMounts:
+            - name: kb-docs
+              mountPath: /data/kb_docs
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
               memory: "2Gi"
-              cpu: "1000m"
+              cpu: "500m"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"
+          # Startup: generous window for Chainlit + DB migrations + first
+          # request through the import chain. 30 × 5s = 150s before
+          # liveness starts ticking.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 5
+          # Readiness: gates Service traffic. With strategy=Recreate the
+          # old pod is gone before this runs, so "not ready" just means
+          # clients get connection refused until /health returns 200 —
+          # preferable to routing to a half-started Chainlit.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Liveness: restart if the ASGI loop goes zombie. Loose enough
+          # to tolerate a long user upload (Docling can block the
+          # thread-pool worker but the event loop stays free, so /health
+          # still answers quickly).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: kb-docs
+          persistentVolumeClaim:
+            claimName: workshop-app-kb-docs

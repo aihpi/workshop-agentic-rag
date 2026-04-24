@@ -409,3 +409,47 @@ html.dark .terms-modal-pdf-btn:hover {
   border-color: #2563eb;
 }
 html.dark .terms-consent-checkbox { accent-color: #93c5fd; }
+
+/* Legal footer — Impressum + Datenschutz.
+   Default: inline after the composer (flows with the chat column).
+   Fallback (direct body child on /login): fixed at viewport bottom. */
+.legal-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+  font-size: 11px;
+  line-height: 1;
+  color: var(--foreground, #111827);
+  opacity: 0.55;
+  user-select: none;
+}
+
+body > .legal-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  pointer-events: none;
+}
+
+body > .legal-footer a {
+  pointer-events: auto;
+}
+
+.legal-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.legal-footer a:hover,
+.legal-footer a:focus {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+.legal-footer-sep {
+  opacity: 0.7;
+}

@@ -194,7 +194,11 @@ cython_debug/
 .cursorindexingignore
 
 # Workshop-specific
-data/
+data/*
+!data/data_docling_json_ocr/
+!data/data_docling_json_ocr/*.json
+!data/data_raw/
+!data/data_raw/*.pdf
 *.sqlite3
 *.sqlite3-shm
 *.sqlite3-wal
