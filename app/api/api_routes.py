@@ -28,6 +28,7 @@ from kb.ingestion_pipeline import (
     drop_collection,
     ingest_sections,
     parse_file,
+    validate_pdf_upload,
 )
 from chat.chat_history import hard_delete_user_data
 from chat.native_chat import (
@@ -297,6 +298,24 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                     )
                 tmp.write(chunk)
             tmp_path = Path(tmp.name)
+
+        # Content-Type header is advisory (easily faked), but if the browser
+        # explicitly labelled a different type we should trust that signal
+        # and reject early — saves a magic-byte read and returns a clearer error.
+        if file.content_type and file.content_type != "application/pdf":
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=415,
+                detail=f"Content-Type {file.content_type} nicht unterstützt. Nur application/pdf.",
+            )
+
+        # Magic-byte check — the actual server-side guard. Catches renamed
+        # files (foo.exe → foo.pdf) that pass the extension check.
+        try:
+            validate_pdf_upload(tmp_path)
+        except ValueError as exc:
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=415, detail=str(exc))
 
         try:
             # Stage 1 — Docling parse. CPU-heavy; on OOM/timeout this is where it dies.

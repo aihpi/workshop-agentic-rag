@@ -273,7 +273,7 @@ Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Stan
         <div class="doc-list"></div>
         <div class="drop">
           Datei hier ablegen oder
-          <input type="file" accept=".pdf,.txt,.md" class="file-input" />
+          <input type="file" accept="application/pdf,.pdf" class="file-input" />
         </div>
         <div class="status upload-status"></div>
       </div>
@@ -312,9 +312,23 @@ Basis-Absicherung :: Welche Schritte umfasst die Basis-Absicherung nach BSI-Stan
     return card;
   };
 
+  const isPdfFile = (file) => (
+    file.type === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf")
+  );
+
   const uploadFiles = async (card, kb, files) => {
     const status = card.querySelector(".upload-status");
-    for (const file of files) {
+    const rejected = files.filter((f) => !isPdfFile(f));
+    if (rejected.length) {
+      setStatus(
+        status,
+        `Nur PDF-Dateien erlaubt. Abgelehnt: ${rejected.map((f) => f.name).join(", ")}`,
+        "err"
+      );
+    }
+    const accepted = files.filter(isPdfFile);
+    for (const file of accepted) {
       setStatus(status, `Lade "${file.name}" hoch…`, "");
       const fd = new FormData();
       fd.append("file", file);
