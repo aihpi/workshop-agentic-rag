@@ -388,7 +388,9 @@
       footer.innerHTML =
         '<a href="https://aisc.hpi.de/portal/cfp/pages/imprint/" target="_blank" rel="noopener noreferrer">Impressum</a>' +
         '<span class="legal-footer-sep" aria-hidden="true"> · </span>' +
-        '<a href="/public/privacy.html" target="_blank" rel="noopener noreferrer">Datenschutz</a>';
+        '<a href="/public/privacy.html" target="_blank" rel="noopener noreferrer">Datenschutz</a>' +
+        '<span class="legal-footer-sep" aria-hidden="true"> · </span>' +
+        '<a href="/public/terms.html" target="_blank" rel="noopener noreferrer">Nutzungsbedingungen</a>';
     }
     const disclaimer = findDisclaimerAnchor();
     if (disclaimer && disclaimer.parentNode) {
