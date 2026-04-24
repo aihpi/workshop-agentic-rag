@@ -18,7 +18,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from chainlit.auth import get_current_user
-from fastapi import Depends, File, HTTPException, UploadFile
+from fastapi import Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -628,7 +628,10 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
         return bool(CHAINLIT_AUTH_USERNAME) and identifier == CHAINLIT_AUTH_USERNAME
 
     @fastapi_app.delete("/api/me")
-    async def delete_own_account(current_user=Depends(get_current_user)):
+    async def delete_own_account(
+        response: Response,
+        current_user=Depends(get_current_user),
+    ):
         identifier = _user_id(current_user)
         if _is_env_admin(identifier):
             raise HTTPException(
@@ -641,6 +644,12 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
                 ),
             )
         result = await _hard_delete_user(identifier)
+        # Expire the Chainlit session cookie in the DELETE response itself.
+        # Without this, the client keeps a JWT whose identifier is now orphaned
+        # in Postgres — and /api/terms would still answer it (JWT signature
+        # validation doesn't re-check DB), so the terms modal flashes up and
+        # the post-login upsert re-creates the account on Accept.
+        response.delete_cookie("access_token", path="/")
         return {"deleted": True, **result}
 
     @fastapi_app.delete("/api/admin/users/{user_id}")
