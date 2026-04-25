@@ -38,6 +38,11 @@ QDRANT_COLLECTION = _getenv("QDRANT_COLLECTION", "grundschutz")
 DOCLING_SERVICE_URL = (_getenv("DOCLING_SERVICE_URL", "") or "").rstrip("/")
 
 MAX_FILE_SIZE_MB = int(_getenv("MAX_FILE_SIZE_MB", "50"))
+# Per-chat session uploads (PDF/MD/TXT injected into the system prompt).
+# Smaller cap than KB uploads because the content goes straight into the
+# LLM context window — 10 MB roughly matches 8 000 tokens of textual PDF.
+MAX_SESSION_FILE_SIZE_MB = int(_getenv("MAX_SESSION_FILE_SIZE_MB", "10"))
+SESSION_DOC_TOKEN_LIMIT = int(_getenv("SESSION_DOC_TOKEN_LIMIT", "8000"))
 CHUNK_MAX_CHARS = int(_getenv("CHUNK_MAX_CHARS", "3000"))
 CHUNK_OVERLAP = int(_getenv("CHUNK_OVERLAP", "300"))
 EMBED_BATCH_SIZE = int(_getenv("EMBED_BATCH_SIZE", "64"))

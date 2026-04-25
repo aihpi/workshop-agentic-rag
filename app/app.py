@@ -83,6 +83,18 @@ from kb.user_kb import (
     list_kbs,
     list_user_starters,
 )
+from session_upload.context import (
+    BASE_SYSTEM_PROMPT_KEY,
+    SESSION_DOCS_KEY,
+    append_session_document,
+    clear_session_documents,
+    consume_tmp_files,
+    rebuild_system_message_with_docs,
+)
+from session_upload.handler import (
+    SessionDocStatus,
+    handle_session_upload,
+)
 from kb.user_profile import (
     determine_balance,
     load_user_profile,
@@ -3024,6 +3036,11 @@ async def on_chat_start():
     if system_prompt and kb_block:
         system_prompt = f"{system_prompt}\n\n{kb_block}"
 
+    # Snapshot the pre-session-docs system prompt so the session_upload
+    # handler can rebuild messages[0] from it whenever a doc is added.
+    cl.user_session.set(BASE_SYSTEM_PROMPT_KEY, system_prompt or "")
+    cl.user_session.set(SESSION_DOCS_KEY, [])
+
     existing_messages = cl.user_session.get("messages")
     messages: list[dict[str, Any]]
     if resumed_session and isinstance(existing_messages, list) and existing_messages:
@@ -3192,9 +3209,21 @@ async def main(message: cl.Message):
         create_chat_session(CHAT_DB_PATH, session_id)
         cl.user_session.set("chat_history_session_id", session_id)
 
-    messages.append({"role": "user", "content": message.content})
-    add_chat_message(CHAT_DB_PATH, session_id, "user", message.content)
-    set_session_title_if_missing(CHAT_DB_PATH, session_id, _first_sentence(message.content, max_len=96))
+    # Session uploads (paperclip attachments) — process before the user
+    # turn so the system prompt has the new doc context before the LLM
+    # sees the message. Synthesises a placeholder user content if the
+    # user attached files without typing anything.
+    if message.elements:
+        await _process_session_uploads(message)
+
+    user_content = message.content
+    if (not user_content) and message.elements:
+        names = ", ".join(getattr(e, "name", "Datei") for e in message.elements)
+        user_content = f"(Dokument hochgeladen: {names})"
+
+    messages.append({"role": "user", "content": user_content})
+    add_chat_message(CHAT_DB_PATH, session_id, "user", user_content)
+    set_session_title_if_missing(CHAT_DB_PATH, session_id, _first_sentence(user_content, max_len=96))
 
     if LANGFLOW_ENABLED:
         langflow_ok = await _handle_langflow_turn(message, messages, session_id)
@@ -3769,3 +3798,56 @@ async def main(message: cl.Message):
     cl.user_session.set("messages", messages)
 
     await _maybe_update_profile()
+
+
+async def _process_session_uploads(message: cl.Message) -> None:
+    """Validate + extract every attached element, inject successes into the
+    sticky system prompt, surface failures as chat messages.
+
+    Called from on_message before the user turn is appended so the LLM
+    already sees the new docs in messages[0]["content"].
+    """
+    for element in message.elements or []:
+        filename = getattr(element, "name", None) or "Datei"
+        with cl.Step(
+            name=f"Dokument verarbeiten: {filename}",
+            type="run",
+        ) as step:
+            try:
+                result = await handle_session_upload(element)
+            except Exception as exc:
+                step.output = f"Fehler: {exc.__class__.__name__}: {exc}"
+                await cl.Message(
+                    author="System",
+                    content=(
+                        f"Verarbeitung von '{filename}' fehlgeschlagen: "
+                        f"{exc.__class__.__name__}."
+                    ),
+                ).send()
+                continue
+            step.output = result.message
+
+        if result.status == SessionDocStatus.OK and result.entry is not None:
+            append_session_document(result.entry)
+            rebuild_system_message_with_docs()
+        else:
+            # Non-OK paths: tell the user, no system-prompt mutation.
+            await cl.Message(author="System", content=result.message).send()
+
+
+@cl.on_chat_end
+async def on_chat_end() -> None:
+    """Wipe per-session document state and unlink any tracked temp files.
+
+    cl.user_session is connection-scoped and will be GC'd anyway, but
+    explicit cleanup is cheap insurance and matches the privacy promise:
+    no session-uploaded content survives the chat end.
+    """
+    clear_session_documents()
+    for tmp in consume_tmp_files():
+        try:
+            Path(tmp).unlink(missing_ok=True)
+        except OSError:
+            # Best-effort cleanup. Chainlit also removes its own upload
+            # tempdir on connection close, so a leftover here is harmless.
+            pass

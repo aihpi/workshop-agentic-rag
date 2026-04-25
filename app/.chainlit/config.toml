@@ -67,9 +67,17 @@ reaction_on_message_received = false
     # 3. For specific file extensions:
     #    accept = { "application/octet-stream" = [".xyz", ".pdb"] }
     # Note: Using "*/*" is not recommended as it may cause browser warnings
-    accept = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/markdown", "text/csv"]
-    max_files = 20
-    max_size_mb = 50
+    # Server-side handler (app/session_upload/handler.py) only accepts
+    # PDF / MD / TXT. The accept list here mirrors that — DOC/DOCX/CSV are
+    # excluded so the browser hides them from the picker rather than
+    # surfacing a server-side rejection.
+    accept = ["application/pdf", "text/plain", "text/markdown"]
+    # Caps match MAX_SESSION_FILE_SIZE_MB so the browser pre-validates
+    # before bytes hit our pod. max_files=5 caps cumulative upload work
+    # in a single message; the server-side token-budget guard catches
+    # the rest.
+    max_files = 5
+    max_size_mb = 10
 
 [features.audio]
     # Enable audio features
