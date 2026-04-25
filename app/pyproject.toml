@@ -13,8 +13,9 @@ dependencies = [
     "docling>=1.5.0",
     "bcrypt>=4.1.0",
     "httpx>=0.27.0",
+    "tiktoken>=0.7.0",
 ]
 
 [tool.setuptools]
-packages = ["core", "chat", "kb", "api", "cli", "langflow", "langflow.components"]
+packages = ["core", "chat", "kb", "api", "cli", "session_upload", "langflow", "langflow.components"]
 py-modules = ["app"]
