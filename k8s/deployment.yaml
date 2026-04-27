@@ -49,6 +49,14 @@ spec:
             # kb-docs PVC to make the whole picture persistent.
             - name: CHAT_DB_PATH
               value: /data/kb_docs/chat_history.sqlite3
+            # Public URL Chainlit uses to build OAuth redirect_uri values.
+            # Without this, Chainlit derives the scheme from the incoming
+            # request — which is plain http inside the pod because Caddy/
+            # Nginx terminates TLS upstream — and GitHub rejects the
+            # `http://...` redirect_uri as not matching the registered
+            # `https://...` callback URL.
+            - name: CHAINLIT_URL
+              value: https://raglab.aisc.hpi.de
           envFrom:
             - secretRef:
                 name: workshop-app-secrets
