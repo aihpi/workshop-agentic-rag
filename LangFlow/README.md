@@ -10,10 +10,10 @@ A hands-on workshop that walks through five progressive agentic RAG patterns usi
 |---|---|
 | Docker Desktop | [Download](https://www.docker.com/products/docker-desktop/) — the only required install |
 | HPI AISC API key | Provided by the workshop organiser |
-| (Optional) Tavily API key | Free at [tavily.com](https://tavily.com) — only needed for Flow 5 |
+| (Optional) Tavily API key | Free at [tavily.com](https://tavily.com) — only needed for Flow 3 and 5 |
 | (Optional) Prior Labs API key | Free at [ux.priorlabs.ai](https://ux.priorlabs.ai) — only needed for Flow 6 (TabPFN MCP) |
 
-You do **not** need Python, LangChain, or any other library installed locally.
+You do **not** need Python, LangChain, or any other library installed on your host. Flows 4 and 6 run Python code via Langflow's built-in `PythonREPLComponent` **inside the Langflow container** — `pandas`, `numpy`, `httpx` ship with the image.
 
 ---
 
@@ -55,17 +55,6 @@ http://localhost:7860
 1. In the Langflow sidebar, click **New Flow** → **Import**
 2. Select one of the `.json` files from the `flows/` folder
 3. The flow opens in the canvas — you can explore, run, and modify it
-
----
-
-## How to Upload Custom Components
-
-The `custom_components/` folder contains production components from the reference app. Upload them once and they become available in all flows:
-
-1. In the sidebar, click **Components** (puzzle icon)
-2. Click **Upload Component** (top-right of the panel)
-3. Select all `.py` files from `custom_components/` (except `__init__.py`)
-4. They appear under **Custom Components** in the component list
 
 ---
 
@@ -148,7 +137,7 @@ Agent.response ─► ChatOutput         │
 
 1. *"Which passenger class had the highest survival rate, and what does Wikipedia say about third-class evacuation?"* — invokes both tools.
 2. *"From now on, please answer me in German."* — agent should append `REMEMBER: user prefers German.`
-3. *"Wie alt war der jüngste Überlebende?"* — on this new turn the Memory node reads the prior insight and the agent answers in German.
+3. *"How old was the youngest survivor?"* — on this new turn the Memory node reads the prior insight and the agent answers in German.
 
 Data:
 - `LangFlow/data/titanic.csv` (891 rows, from datasciencedojo/datasets, MIT).
@@ -200,13 +189,15 @@ Chat Input ─► Agent ─► Chat Output
 
 An agent with a `SmartRouter` (LLM classifier) that splits each user question into a **descriptive** branch or an **inferential** branch:
 
-- **descriptive** → minimal Agent + Python REPL → pandas on `/app/flows/data/german_credit.csv`.
-- **inferential** → richer Agent + Python REPL + 3 TabPFN MCP tools (`upload_dataset`, `fit_and_predict_from_dataset`, `fit_and_predict_inline`).
+- **descriptive** → minimal Agent + Python REPL → pandas on `/app/flows/data/german_credit.csv` → **Descriptive Output**.
+- **inferential** → richer Agent + Python REPL + one **MCPTools** node that exposes all 5 TabPFN tools (`upload_dataset`, `fit_and_predict_from_dataset`, `predict_from_dataset`, `fit_and_predict_inline`, `predict_inline`) → **Inferential Output**.
 
 ```
-Chat Input ─► SmartRouter ─► (descriptive) ─► Agent_desc  (pandas only)  ─┐
-                          └─► (inferential) ─► Agent_inf   + TabPFN MCP ──┴─► Chat Output
+Chat Input ─► SmartRouter ─► (descriptive) ─► Agent_desc  (pandas only)        ─► Descriptive Output
+                          └─► (inferential) ─► Agent_inf   + Python REPL + MCP  ─► Inferential Output
 ```
+
+Each branch has its own ChatOutput because Langflow can't merge a fan-in cleanly when one SmartRouter path is skipped.
 
 **Setup (one-time):**
 
@@ -219,7 +210,7 @@ Chat Input ─► SmartRouter ─► (descriptive) ─► Agent_desc  (pandas on
    | URL  | `https://api.priorlabs.ai/mcp/server` |
    | Headers | `{"Authorization": "Bearer <YOUR_PRIORLABS_API_KEY>"}` |
 
-3. Re-open each of the three MCPTools nodes (`upload_dataset`, `fit_and_predict_from_dataset`, `fit_and_predict_inline`) and click **Refresh Tools**.
+3. Open the single **MCPTools** node (`MCP: tabpfn.upload_dataset`) and click **Refresh Tools** — Langflow lists all 5 TabPFN tools and exposes them to the inferential Agent as one toolkit.
 4. `LangFlow/data/german_credit.csv` is already bind-mounted to `/app/flows/data/german_credit.csv` inside the Langflow container (public-domain, 1000 rows, OpenML dataset 31).
 
 **Try it:**
@@ -231,9 +222,10 @@ Chat Input ─► SmartRouter ─► (descriptive) ─► Agent_desc  (pandas on
 
 **What you'll learn:**
 - `SmartRouter` as a Flow Control primitive (LLM-based classification)
-- Wiring two agents off a single router
+- Wiring two agents off a single router, each with its own ChatOutput
+- One MCPTools node with Tool Mode on exposes the *whole* MCP server toolkit — no need to wire one MCPTools node per remote tool
 - Calling an external foundation-model MCP (TabPFN) from Langflow
-- The upload → HTTP PUT → fit_and_predict dance TabPFN requires
+- Inline (`fit_and_predict_inline`) vs upload+PUT (`fit_and_predict_from_dataset`) workflows
 
 ---
 
