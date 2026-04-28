@@ -81,14 +81,31 @@ def make_entry(filename: str, markdown: str) -> SessionDocEntry:
 
 
 def render_session_documents_block(docs: list[SessionDocEntry]) -> str:
-    """Render the docs as an XML-ish block the LLM can quote from.
+    """Render the docs as an XML-ish block prefixed with a German instruction
+    telling the model to ground its answers in this content when relevant.
 
     Empty list → empty string so the system prompt stays unchanged before
-    any upload.
+    any upload. Without the preamble the LLM sees raw XML and doesn't know
+    whether to prioritise it over the BSI rag_retrieve tool output.
     """
     if not docs:
         return ""
-    parts: list[str] = ["<session_documents>"]
+    file_list = ", ".join(f'"{d.filename}"' for d in docs)
+    parts: list[str] = [
+        "## Vom Nutzer in dieser Chat-Session hochgeladene Dokumente",
+        "",
+        f"Der Nutzer hat in dieser Chat-Session die folgenden Dokumente "
+        f"hochgeladen: {file_list}. Wenn sich eine Nutzerfrage auf diese "
+        "Dokumente bezieht (etwa 'Fasse das PDF zusammen', 'Was steht in "
+        "dem hochgeladenen Dokument zu X' oder eine inhaltliche Folgefrage "
+        "darauf), antworte primär auf Basis des Inhalts dieser Dokumente "
+        "und nicht aus der BSI-Wissensbasis. Zitiere konkret und gib den "
+        "Dateinamen an. Greife nur dann zusätzlich auf die "
+        "BSI-Wissensbasis zurück, wenn die Nutzerfrage explizit eine "
+        "Verknüpfung zwischen dem Dokument und IT-Grundschutz herstellt.",
+        "",
+        "<session_documents>",
+    ]
     for idx, doc in enumerate(docs, start=1):
         # Filenames are user-controlled; strip quotes/angle-brackets so a
         # malicious filename can't break out of the attribute.
