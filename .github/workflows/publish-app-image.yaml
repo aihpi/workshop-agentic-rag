@@ -116,8 +116,24 @@ jobs:
           GPU_TAG="${{ steps.bump.outputs.gpu_tag }}"
           if git diff --exit-code k8s/deployment.yaml k8s/docling-service.yaml k8s/purge-cronjob.yaml; then
             echo "No manifest change. Skipping commit."
-          else
-            git add k8s/deployment.yaml k8s/docling-service.yaml k8s/purge-cronjob.yaml
-            git commit -m "chore: bump images app=${CPU_TAG} docling=${GPU_TAG} [skip ci]"
-            git push origin main
+            exit 0
           fi
+
+          git add k8s/deployment.yaml k8s/docling-service.yaml k8s/purge-cronjob.yaml
+          git commit -m "chore: bump images app=${CPU_TAG} docling=${GPU_TAG} [skip ci]"
+
+          # Push with rebase-retry. cancel-in-progress isn't atomic — if a
+          # previous run for an earlier SHA finishes its push between our
+          # checkout and our push, the bare `push` rejects. Rebase our bump
+          # commit on top of whatever landed and try again. Cap at 5 tries
+          # so a genuinely broken main doesn't loop forever.
+          for attempt in 1 2 3 4 5; do
+            if git push origin main; then
+              echo "Pushed bump on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt). Pulling --rebase and retrying."
+            git pull --rebase origin main
+          done
+          echo "Failed to push bump after 5 attempts."
+          exit 1
