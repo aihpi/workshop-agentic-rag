@@ -32,7 +32,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: purge
-              image: ghcr.io/aihpi/workshop-agentic-rag:sha-25dbb54
+              image: ghcr.io/aihpi/workshop-agentic-rag:sha-e343f12
               imagePullPolicy: IfNotPresent
               command: ["python", "-m", "cli.purge_inactive"]
               workingDir: /app
