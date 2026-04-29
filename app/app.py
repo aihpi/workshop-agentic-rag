@@ -83,6 +83,13 @@ from kb.user_kb import (
     list_kbs,
     list_user_starters,
 )
+from session_upload.citations import (
+    build_session_doc_inline_elements,
+    clear_session_source_state,
+    get_session_source_path,
+    register_session_source,
+    SESSION_TOKEN_PREFIX,
+)
 from session_upload.context import (
     BASE_SYSTEM_PROMPT_KEY,
     SESSION_DOCS_KEY,
@@ -587,6 +594,20 @@ def _sanitize_source_catalog(raw_catalog: Any) -> dict[str, Any]:
                 normalized_entry["page_end"] = page_end
             if section:
                 normalized_entry["section"] = section
+            # Session-upload entries carry a kind discriminator + a
+            # uuid token mapping back to the live tmp path. Preserved
+            # round-trip so a chat resume keeps the citation surface
+            # (clicks may 404 if the temp file is gone — acceptable,
+            # session uploads are by definition ephemeral).
+            kind = entry_raw.get("kind")
+            if isinstance(kind, str) and kind.strip():
+                normalized_entry["kind"] = kind.strip()
+            session_token = entry_raw.get("session_token")
+            if isinstance(session_token, str) and session_token.strip():
+                normalized_entry["session_token"] = session_token.strip()
+            ext = entry_raw.get("ext")
+            if isinstance(ext, str) and ext.strip():
+                normalized_entry["ext"] = ext.strip().lower()
             entries[str(source_id)] = normalized_entry
 
     valid_ids = {int(source_id) for source_id in entries}
@@ -2218,6 +2239,9 @@ async def _finalize_assistant_reply(
     # Attach one inline cl.Pdf(display="side") per cited source so clicking the alias
     # text in the message body opens the PDF in the right side panel instead of a new tab.
     inline_pdf_elements = _build_inline_pdf_elements(source_rows_for_session)
+    # Plus one element per session-uploaded doc — Chainlit only surfaces those
+    # whose name matches body text, so unused ones stay invisible.
+    inline_pdf_elements.extend(build_session_doc_inline_elements())
     if inline_pdf_elements:
         assistant_reply.elements = (assistant_reply.elements or []) + inline_pdf_elements
 
@@ -2655,6 +2679,21 @@ async def on_app_startup() -> None:
     async def source_pdf(identifier: str, request: Request, current_user=Depends(get_current_user)):
         if current_user is None:
             raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Session-uploaded PDF: identifier looks like `session-<hex_token>`.
+        # The resolver map is per-WebSocket-connection (cl.user_session) so a
+        # token can only be served back to the user that uploaded it. Path is
+        # validated via get_session_source_path which checks file existence
+        # but never returns a path that wasn't registered — so a crafted
+        # `session-../../etc/passwd` cannot escape.
+        if identifier.startswith(SESSION_TOKEN_PREFIX):
+            token = identifier[len(SESSION_TOKEN_PREFIX):]
+            if not re.fullmatch(r"[0-9a-f]{8,64}", token):
+                raise HTTPException(status_code=404, detail="Source PDF not found")
+            file_path = get_session_source_path(token)
+            if file_path is None or file_path.suffix.lower() != ".pdf":
+                raise HTTPException(status_code=404, detail="Source PDF not found")
+            return _pdf_cache_response(file_path, request)
 
         # First try: treat identifier as a kb_documents.id (user-uploaded file).
         # UUID check is loose on purpose — record_document generates uuid4s, but
@@ -3738,6 +3777,7 @@ async def main(message: cl.Message):
         # Attach one inline cl.Pdf(display="side") per cited source so clicking the alias
         # text in the message body opens the PDF in the right side panel instead of a new tab.
         inline_pdf_elements = _build_inline_pdf_elements(source_rows_for_session)
+        inline_pdf_elements.extend(build_session_doc_inline_elements())
         if inline_pdf_elements:
             assistant_reply.elements = (assistant_reply.elements or []) + inline_pdf_elements
 
@@ -3828,6 +3868,22 @@ async def _process_session_uploads(message: cl.Message) -> None:
             step.output = result.message
 
         if result.status == SessionDocStatus.OK and result.entry is not None:
+            # Register in the per-chat source catalog so the upload gets
+            # a `Quelle N` number that's unified with KB-source numbering.
+            # Must happen before rebuild_system_message_with_docs() so the
+            # quelle="N" attribute lands in the system prompt.
+            element_path = getattr(element, "path", None)
+            if isinstance(element_path, str) and element_path.strip():
+                catalog = cl.user_session.get("source_catalog") or _empty_source_catalog()
+                quelle_n = register_session_source(
+                    catalog,
+                    filename=result.entry.filename,
+                    path=Path(element_path),
+                    markdown=result.entry.markdown,
+                )
+                cl.user_session.set("source_catalog", catalog)
+                _persist_session_source_catalog(_current_chat_session_id(), catalog)
+                result.entry.quelle_number = quelle_n
             append_session_document(result.entry)
             rebuild_system_message_with_docs()
         else:
@@ -3844,6 +3900,7 @@ async def on_chat_end() -> None:
     no session-uploaded content survives the chat end.
     """
     clear_session_documents()
+    clear_session_source_state()
     for tmp in consume_tmp_files():
         try:
             Path(tmp).unlink(missing_ok=True)

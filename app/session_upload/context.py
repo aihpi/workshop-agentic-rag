@@ -33,6 +33,7 @@ class SessionDocEntry:
     markdown: str
     token_count: int
     uploaded_at: str  # ISO8601
+    quelle_number: int | None = None  # filled in after register_session_source
 
 
 @functools.cache
@@ -99,10 +100,17 @@ def render_session_documents_block(docs: list[SessionDocEntry]) -> str:
         "Dokumente bezieht (etwa 'Fasse das PDF zusammen', 'Was steht in "
         "dem hochgeladenen Dokument zu X' oder eine inhaltliche Folgefrage "
         "darauf), antworte primär auf Basis des Inhalts dieser Dokumente "
-        "und nicht aus der BSI-Wissensbasis. Zitiere konkret und gib den "
-        "Dateinamen an. Greife nur dann zusätzlich auf die "
-        "BSI-Wissensbasis zurück, wenn die Nutzerfrage explizit eine "
-        "Verknüpfung zwischen dem Dokument und IT-Grundschutz herstellt.",
+        "und nicht aus der BSI-Wissensbasis. Greife nur dann zusätzlich "
+        "auf die BSI-Wissensbasis zurück, wenn die Nutzerfrage explizit "
+        "eine Verknüpfung zwischen dem Dokument und IT-Grundschutz "
+        "herstellt.",
+        "",
+        "Zitiere mit demselben Format wie für die BSI-Wissensbasis: "
+        "`Quelle <Nummer>: <Dateiname>` (ohne Seitenangabe — diese "
+        "Dokumente werden als Ganzes referenziert). Die Nummer steht "
+        "im `quelle=\"...\"`-Attribut des `<document>`-Tags. Das "
+        "Quellen-Token muss roh im Fließtext stehen, ohne eckige, "
+        "geschweifte oder runde Klammern darum.",
         "",
         "<session_documents>",
     ]
@@ -112,8 +120,17 @@ def render_session_documents_block(docs: list[SessionDocEntry]) -> str:
         safe_name = (
             doc.filename.replace('"', "'").replace("<", "(").replace(">", ")")
         )
+        # quelle="N" tells the LLM the citation number to emit.
+        # Falls back to upload_index for backwards compat if registration
+        # somehow didn't run (shouldn't happen — _process_session_uploads
+        # always registers before rebuild_system_message_with_docs).
+        quelle_attr = (
+            f' quelle="{doc.quelle_number}"'
+            if isinstance(doc.quelle_number, int)
+            else ""
+        )
         parts.append(
-            f'  <document filename="{safe_name}" upload_index="{idx}">'
+            f'  <document filename="{safe_name}"{quelle_attr} upload_index="{idx}">'
         )
         parts.append(doc.markdown.strip())
         parts.append("  </document>")
