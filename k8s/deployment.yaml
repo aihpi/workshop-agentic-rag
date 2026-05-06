@@ -5,7 +5,7 @@ metadata:
   labels:
     app: workshop-app
 spec:
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
@@ -17,6 +17,17 @@ spec:
       labels:
         app: workshop-app
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - vx01
+                      - vx02
+                      - vx03
       containers:
         - name: app
           image: ghcr.io/aihpi/workshop-agentic-rag:sha-b103353
