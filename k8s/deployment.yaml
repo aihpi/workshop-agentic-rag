@@ -5,7 +5,7 @@ metadata:
   labels:
     app: workshop-app
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
