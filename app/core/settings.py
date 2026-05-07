@@ -37,6 +37,28 @@ QDRANT_COLLECTION = _getenv("QDRANT_COLLECTION", "grundschutz")
 # 0 reverts behavior to local CPU without any env change.
 DOCLING_SERVICE_URL = (_getenv("DOCLING_SERVICE_URL", "") or "").rstrip("/")
 
+# Per-PDF page-batch size sent to docling-service. Big PDFs are split into
+# DOCLING_CHUNK_PAGES-page tempfiles and fired concurrently, so a 200-page
+# upload doesn't block a 10-page upload behind it on a single replica.
+DOCLING_CHUNK_PAGES = int(_getenv("DOCLING_CHUNK_PAGES", "20"))
+# Global asyncio.Semaphore size — the actual fairness queue. Sized for the
+# *max* replica count, not the current one: chunks pile up at the service
+# side (k8s round-robins) until a scale-up catches up.
+DOCLING_CONCURRENCY = int(_getenv("DOCLING_CONCURRENCY", "3"))
+# Cap on app-driven scale-ups. The semaphore size should match this.
+DOCLING_MAX_REPLICAS = int(_getenv("DOCLING_MAX_REPLICAS", "3"))
+# Idle scale-down threshold. After this many seconds with zero in-flight
+# requests, the background task patches docling-service back to replicas=0.
+DOCLING_IDLE_SCALEDOWN_SECONDS = int(_getenv("DOCLING_IDLE_SCALEDOWN_SECONDS", "900"))
+# k8s coordinates for the scaler. Namespace defaults to the downward-API
+# value injected by k8s/deployment.yaml; falls back to the workshop ns.
+DOCLING_DEPLOYMENT_NAME = _getenv("DOCLING_DEPLOYMENT_NAME", "docling-service") or "docling-service"
+DOCLING_DEPLOYMENT_NAMESPACE = (
+    _getenv("DOCLING_DEPLOYMENT_NAMESPACE")
+    or _getenv("K8S_NAMESPACE")
+    or "workshop-agentic-rag"
+)
+
 MAX_FILE_SIZE_MB = int(_getenv("MAX_FILE_SIZE_MB", "50"))
 # Per-chat session uploads (PDF/MD/TXT injected into the system prompt).
 # Smaller cap than KB uploads because the content goes straight into the
