@@ -51,7 +51,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: docling
-          image: ghcr.io/aihpi/workshop-agentic-rag-docling:sha-b103353
+          image: ghcr.io/aihpi/workshop-agentic-rag-docling:sha-9bfa29c
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "uvicorn"]
           args:

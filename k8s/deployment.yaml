@@ -35,7 +35,7 @@ spec:
                       - vx03
       containers:
         - name: app
-          image: ghcr.io/aihpi/workshop-agentic-rag:sha-b103353
+          image: ghcr.io/aihpi/workshop-agentic-rag:sha-9bfa29c
           ports:
             - containerPort: 8000
           env:
