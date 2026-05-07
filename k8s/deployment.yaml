@@ -17,6 +17,11 @@ spec:
       labels:
         app: workshop-app
     spec:
+      # Bound to the docling-scaler Role (k8s/docling-rbac.yaml). Grants
+      # GET on the docling-service Deployment + patch on its /scale
+      # subresource so the in-process autoscaler can drive replicas
+      # 0↔N reactively.
+      serviceAccountName: workshop-app
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -40,6 +45,12 @@ spec:
               value: /data/data_raw
             - name: DOCLING_SERVICE_URL
               value: http://docling-service.workshop-agentic-rag.svc:8080
+            # Downward API — the docling-scaler reads this to know which
+            # namespace to address its scale patches at. Avoids hardcoding.
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             # Auto-fallback to this model when the primary (CHAT_MODEL in
             # the sealed secret) returns 5xx/timeout. Model names aren't
             # sensitive so this lives in plain env, not the sealed secret —

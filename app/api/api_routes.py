@@ -28,6 +28,7 @@ from kb.ingestion_pipeline import (
     drop_collection,
     ingest_sections,
     parse_file,
+    parse_pdf_async,
     validate_pdf_upload,
 )
 from chat.chat_history import hard_delete_user_data
@@ -371,12 +372,16 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             raise HTTPException(status_code=415, detail=str(exc))
 
         try:
-            # Stage 1 — Docling parse. CPU-heavy; on OOM/timeout this is where it dies.
-            # Wrapped in asyncio.to_thread so it doesn't block the event loop —
-            # otherwise a single upload freezes chat streaming for all users.
+            # Stage 1 — Docling parse. Splits the PDF into page-batches and
+            # fires them concurrently through a process-wide semaphore (see
+            # parse_pdf_async). For non-PDF formats the path falls back to
+            # the sync parse_file in a thread.
             t0 = time.monotonic()
             try:
-                sections = await asyncio.to_thread(parse_file, tmp_path)
+                if ext == ".pdf":
+                    sections = await parse_pdf_async(tmp_path)
+                else:
+                    sections = await asyncio.to_thread(parse_file, tmp_path)
             except Exception:
                 logger.exception(
                     "upload.parse_failed kb_id=%s filename=%s size=%d elapsed=%.1fs",

@@ -1,17 +1,24 @@
 # GPU-backed Docling preprocessing service.
 #
-# Runs at replicas: 0 by default — scale manually around workshop hours:
-#   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=1
-#   kubectl -n workshop-agentic-rag scale deploy/docling-service --replicas=0
+# Replicas are driven by the in-process autoscaler in the workshop-app pod
+# (see app/kb/docling_scaler.py): scale-up triggered pre-flight on each
+# upload, scale back to 0 after DOCLING_IDLE_SCALEDOWN_SECONDS of no
+# uploads. RBAC for this lives in [k8s/docling-rbac.yaml].
 #
-# When replicas=0, the main app pod's upload path falls back to local
-# CPU Docling (see app/kb/ingestion_pipeline.py::_parse_pdf_remote). So
-# scaling this Deployment is the only toggle — no env changes.
+# `replicas: 0` here is the **bootstrap default** for fresh ArgoCD syncs.
+# After bootstrap the value is irrelevant: ArgoCD's `ignoreDifferences`
+# on `/spec/replicas` ([k8s/argocd/application.yaml]) keeps live replica
+# counts from being reverted by selfHeal. The app patches them; manual
+# `kubectl scale deploy/docling-service --replicas=N` still works as an
+# operator override.
+#
+# When replicas=0 *and* the autoscaler is disabled (local dev, RBAC denied),
+# the main app pod's upload path falls back to local CPU Docling (see
+# app/kb/ingestion_pipeline.py::parse_pdf_async cold-start timeout branch).
 #
 # Remaining work (see FUTURE_WORK.md "GPU Docling service"):
 #   - Split into its own smaller image once CUDA is stripped from the
 #     main app image. Right now this reuses the 6 GB app image.
-#   - Automate scale-up/down (cron or app-driven via k8s API).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,7 +26,7 @@ metadata:
   labels:
     app: docling-service
 spec:
-  replicas: 1
+  replicas: 0
   revisionHistoryLimit: 2
   strategy:
     type: Recreate

@@ -1,0 +1,58 @@
+# RBAC for the in-process docling-service autoscaler.
+#
+# The main `workshop-app` pod scales `docling-service` up before queueing
+# upload chunks and back to 0 after an idle period. The Role is
+# tightly scoped to a single Deployment by `resourceNames` — even if the
+# app is compromised the blast radius is just "scale this one Deployment".
+#
+# Paired with [k8s/argocd/application.yaml] `ignoreDifferences` on
+# `/spec/replicas` so selfHeal doesn't fight us.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workshop-app
+  labels:
+    app: workshop-app
+  annotations:
+    # Ensure RBAC lands strictly before the workshop-app Deployment
+    # rollout. ArgoCD's default kind ordering already does this for fresh
+    # syncs, but the wave annotation makes it explicit and survives
+    # ApplyOutOfSyncOnly partial syncs.
+    argocd.argoproj.io/sync-wave: "-1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: docling-scaler
+  labels:
+    app: workshop-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  # Read spec.replicas + status.readyReplicas via plain GET.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["docling-service"]
+    verbs: ["get"]
+  # Patch the scale subresource — NOT the deployments resource itself.
+  # Granting on `deployments` would not authorize calls to /scale.
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    resourceNames: ["docling-service"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: docling-scaler
+  labels:
+    app: workshop-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+subjects:
+  - kind: ServiceAccount
+    name: workshop-app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: docling-scaler

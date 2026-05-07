@@ -5,8 +5,10 @@ Used by the per-user FastAPI upload endpoint (app/api/api_routes.py).
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import logging
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable
@@ -22,12 +24,16 @@ from core.llm import embed
 from core.settings import (
     CHUNK_MAX_CHARS,
     CHUNK_OVERLAP,
+    DOCLING_CHUNK_PAGES,
+    DOCLING_CONCURRENCY,
+    DOCLING_MAX_REPLICAS,
     DOCLING_SERVICE_URL,
     EMBED_BATCH_SIZE,
     EMBED_MAX_BATCH_CHARS,
     QDRANT_API_KEY,
     QDRANT_URL,
 )
+from kb import docling_scaler
 
 logger = logging.getLogger(__name__)
 
@@ -294,13 +300,15 @@ def _get_pdf_converter() -> DocumentConverter:
     )
 
 
-def parse_pdf(path: Path) -> list[dict[str, Any]]:
-    if DOCLING_SERVICE_URL:
-        remote_sections = _parse_pdf_remote(path, DOCLING_SERVICE_URL)
-        if remote_sections is not None:
-            return remote_sections
-        # Fall through to local parsing on remote failure.
+def _parse_pdf_local(path: Path) -> list[dict[str, Any]]:
+    """In-process Docling parse. Used by `parse_pdf` (when no remote URL)
+    and by `parse_pdf_async` as the cold-start / unreachable fallback.
 
+    Kept separate from `parse_pdf` so the async fallback path doesn't
+    re-attempt the remote call (which `parse_pdf` would do via
+    `_parse_pdf_remote`) — that would just add 2s of connect-timeout
+    latency to every fallback.
+    """
     converter = _get_pdf_converter()
     result = converter.convert(str(path))
     document = getattr(result, "document", None)
@@ -332,6 +340,261 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
             "page_end": None,
         }]
     return []
+
+
+def parse_pdf(path: Path) -> list[dict[str, Any]]:
+    if DOCLING_SERVICE_URL:
+        remote_sections = _parse_pdf_remote(path, DOCLING_SERVICE_URL)
+        if remote_sections is not None:
+            return remote_sections
+        # Fall through to local parsing on remote failure.
+    return _parse_pdf_local(path)
+
+
+# ---------------------------------------------------------------------------
+# Fair chunked async parsing — split a PDF into page-batches, fire all
+# batches concurrently through a shared semaphore, merge results.
+#
+# The semaphore *is* the queue. Every chunk from every user competes for
+# the same DOCLING_CONCURRENCY slots; a 200-page upload's chunks get
+# interleaved with a 10-page upload's single chunk instead of head-of-line
+# blocking it.
+# ---------------------------------------------------------------------------
+
+# Module-level: shared across all callers in this process. Sized for the
+# *maximum* replica count, not the current — chunks pile up at docling-service
+# (k8s round-robins) until the in-process scaler catches up.
+_DOCLING_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _get_docling_semaphore() -> asyncio.Semaphore:
+    """Lazy-init so we bind to the running event loop, not import-time."""
+    global _DOCLING_SEMAPHORE
+    if _DOCLING_SEMAPHORE is None:
+        _DOCLING_SEMAPHORE = asyncio.Semaphore(DOCLING_CONCURRENCY)
+    return _DOCLING_SEMAPHORE
+
+
+def _split_pdf_to_chunks(path: Path, out_dir: Path, pages_per_chunk: int) -> list[Path]:
+    """Split `path` into ceil(N / pages_per_chunk) PDFs in `out_dir`.
+
+    Returns the chunk paths in document order. Single-chunk shortcut: if
+    the source has <= pages_per_chunk pages, copy nothing — return [path]
+    so the caller doesn't pay split + reload for tiny PDFs.
+    """
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(str(path))
+    total_pages = len(reader.pages)
+    if total_pages <= pages_per_chunk:
+        return [path]
+
+    chunk_paths: list[Path] = []
+    for chunk_idx, start in enumerate(range(0, total_pages, pages_per_chunk)):
+        end = min(start + pages_per_chunk, total_pages)
+        writer = PdfWriter()
+        for page_no in range(start, end):
+            writer.add_page(reader.pages[page_no])
+        chunk_path = out_dir / f"chunk_{chunk_idx:04d}.pdf"
+        with open(chunk_path, "wb") as fh:
+            writer.write(fh)
+        chunk_paths.append(chunk_path)
+    return chunk_paths
+
+
+def _rewrite_section_pages(sections: list[dict[str, Any]], offset: int) -> None:
+    """Add `offset` to every page_start/page_end in-place.
+
+    Offset is `chunk_idx * DOCLING_CHUNK_PAGES` — pypdf produces a fresh
+    PDF whose first page is page 1, and Docling's `page_no` in `prov` is
+    1-indexed, so a section reporting page 3 in chunk 1 (chunk_idx=1,
+    offset=20) is absolute page 23 = 3 + 20. NOT 24.
+    """
+    if offset == 0:
+        return
+    for sec in sections:
+        ps = sec.get("page_start")
+        if isinstance(ps, int):
+            sec["page_start"] = ps + offset
+        pe = sec.get("page_end")
+        if isinstance(pe, int):
+            sec["page_end"] = pe + offset
+
+
+def _stitch_boundary_sections(merged: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Repair section-headers that got orphaned at chunk boundaries.
+
+    A section spanning pages 19-22 split at the page-20 boundary becomes:
+      - chunk N: title-only section (header found, body cut off)
+      - chunk N+1: body-only section (no title, starts mid-content)
+    Detect that pattern and concatenate. Cheap heuristic — title-only
+    means the previous section's text is shorter than 200 chars; body-only
+    means the next section has empty section_title and its page_start
+    equals or directly follows the previous section's page_end.
+    """
+    if len(merged) < 2:
+        return merged
+    out: list[dict[str, Any]] = [merged[0]]
+    for nxt in merged[1:]:
+        prev = out[-1]
+        prev_text = prev.get("text") or ""
+        prev_title = (prev.get("section_title") or "").strip()
+        nxt_title = (nxt.get("section_title") or "").strip()
+        prev_end = prev.get("page_end")
+        nxt_start = nxt.get("page_start")
+        adjacent = (
+            isinstance(prev_end, int)
+            and isinstance(nxt_start, int)
+            and nxt_start - prev_end <= 1
+        )
+        title_only = bool(prev_title) and len(prev_text) < 200
+        body_only = not nxt_title
+        if adjacent and title_only and body_only:
+            stitched_text = (nxt.get("text") or "").strip()
+            # Re-prepend the orphan title since `_sections_from_docling_dict`
+            # would have done that on the un-split parse.
+            if stitched_text and not stitched_text.lower().startswith(prev_title.lower()):
+                stitched_text = f"{prev_title}\n\n{stitched_text}"
+            prev["text"] = stitched_text
+            prev["section_title"] = prev_title
+            if isinstance(nxt.get("page_end"), int):
+                prev["page_end"] = nxt["page_end"]
+            continue
+        out.append(nxt)
+    return out
+
+
+async def _post_chunk(
+    client: httpx.AsyncClient,
+    chunk_path: Path,
+    chunk_idx: int,
+    service_url: str,
+    file_name: str,
+) -> tuple[int, list[dict[str, Any]]]:
+    """POST one chunk to /process under the shared semaphore.
+
+    Page numbers in returned sections are rewritten to absolute (original
+    document) coordinates before return. The chunk's source file_name is
+    forced onto each section so citations show the upload's original name,
+    not "chunk_0003.pdf".
+    """
+    sem = _get_docling_semaphore()
+    offset = chunk_idx * DOCLING_CHUNK_PAGES
+    async with sem:
+        with open(chunk_path, "rb") as fh:
+            files = {"file": (file_name, fh, "application/pdf")}
+            resp = await client.post(f"{service_url}/process", files=files)
+    if resp.status_code >= 500:
+        raise httpx.HTTPStatusError(
+            f"docling-service 5xx: {resp.status_code}", request=resp.request, response=resp,
+        )
+    resp.raise_for_status()
+    payload = resp.json()
+    sections = payload.get("sections") if isinstance(payload, dict) else None
+    if not isinstance(sections, list):
+        raise ValueError("docling-service returned no 'sections' list")
+    _rewrite_section_pages(sections, offset)
+    for sec in sections:
+        if isinstance(sec, dict):
+            sec["file"] = file_name
+    return chunk_idx, sections
+
+
+async def parse_pdf_async(
+    path: Path,
+    *,
+    on_progress: Callable[[int, int], Awaitable[None]] | None = None,
+) -> list[dict[str, Any]]:
+    """Split `path` into page batches, fire concurrently, return merged sections.
+
+    Falls back to local CPU `parse_pdf` if:
+      - DOCLING_SERVICE_URL is unset (no remote service configured), or
+      - cold-start scale-up doesn't yield a ready replica within 90s.
+
+    If any *individual* chunk fails after the service is up, raises — no
+    mixed mode. Local CPU was meant for "service unreachable", not
+    "service overloaded".
+    """
+    if not DOCLING_SERVICE_URL:
+        # No remote service — use the existing local in-process path.
+        return await asyncio.to_thread(_parse_pdf_local, path)
+
+    docling_scaler.mark_request_start()
+    try:
+        with tempfile.TemporaryDirectory(prefix="docling_chunks_") as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            chunk_paths = await asyncio.to_thread(
+                _split_pdf_to_chunks, path, tmp_dir_path, DOCLING_CHUNK_PAGES,
+            )
+
+            await docling_scaler.ensure_capacity(
+                desired=min(len(chunk_paths), DOCLING_MAX_REPLICAS),
+            )
+            ready = await docling_scaler.wait_for_ready_replicas(
+                min_ready=1, timeout_s=90.0,
+            )
+            if not ready:
+                logger.warning(
+                    "docling.cold_start_timeout falling back to local CPU file=%s pages=%d",
+                    path.name, len(chunk_paths),
+                )
+                return await asyncio.to_thread(_parse_pdf_local, path)
+
+            timeout = httpx.Timeout(connect=5.0, read=300.0, write=30.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                tasks = [
+                    asyncio.create_task(
+                        _post_chunk(client, cp, idx, DOCLING_SERVICE_URL, path.name)
+                    )
+                    for idx, cp in enumerate(chunk_paths)
+                ]
+                results: list[tuple[int, list[dict[str, Any]]]] = []
+                done = 0
+                total = len(tasks)
+                try:
+                    for coro in asyncio.as_completed(tasks):
+                        chunk_idx, sections = await coro
+                        results.append((chunk_idx, sections))
+                        done += 1
+                        if on_progress is not None:
+                            await on_progress(done, total)
+                except (httpx.ConnectError, httpx.TimeoutException, OSError) as exc:
+                    # Cancel everything still in flight so we don't leave
+                    # stragglers running after we've decided to fall back.
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+                    if not results:
+                        # No chunk has succeeded yet → service is genuinely
+                        # unreachable (local dev with broken URL, or scaled
+                        # to 0 with scaler disabled). Honour the existing
+                        # "service unreachable → local CPU" contract.
+                        logger.warning(
+                            "docling.first_chunk_unreachable falling back to local CPU file=%s reason=%s",
+                            path.name, type(exc).__name__,
+                        )
+                        return await asyncio.to_thread(_parse_pdf_local, path)
+                    # Partial success then a failure mid-stream: that's a
+                    # real error, not a cold-start. Don't quietly degrade.
+                    raise
+                except Exception:
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+                    raise
+
+        results.sort(key=lambda r: r[0])
+        merged: list[dict[str, Any]] = []
+        for _, sections in results:
+            merged.extend(sections)
+        merged = _stitch_boundary_sections(merged)
+        logger.info(
+            "docling.parse_async_ok file=%s chunks=%d sections=%d",
+            path.name, total, len(merged),
+        )
+        return merged
+    finally:
+        docling_scaler.mark_request_end()
 
 
 def parse_text_file(path: Path) -> list[dict[str, Any]]:

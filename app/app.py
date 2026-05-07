@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import functools
 import hashlib
 import json
@@ -2612,6 +2613,13 @@ async def on_app_startup() -> None:
     init_chat_db(CHAT_DB_PATH)
     init_user_kb_db(CHAT_DB_PATH)
     CHAT_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Background loop that scales docling-service back to 0 after
+    # DOCLING_IDLE_SCALEDOWN_SECONDS of zero in-flight uploads. No-ops in
+    # local dev (no in-cluster k8s config). Pod termination kills the task;
+    # `strategy: Recreate` makes that benign.
+    from kb import docling_scaler
+    asyncio.create_task(docling_scaler.idle_scaledown_loop())
 
     # Register user-scoped API routes + static settings UI regardless of whether
     # the Postgres native chat schema is configured — they only depend on SQLite

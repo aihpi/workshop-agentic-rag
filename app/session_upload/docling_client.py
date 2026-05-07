@@ -1,10 +1,13 @@
 """Async client for the in-cluster Docling service.
 
-Calls the same FastAPI /process endpoint that kb.ingestion_pipeline uses
-for KB uploads, but stays async (the chat handler is already async, no
-need for the to_thread hop the KB path takes). Returns markdown joined
-from the section list so the caller can drop it straight into the
-session-document context block.
+Routes PDFs through the same `parse_pdf_async` chunk-fairness queue that
+KB uploads use ([app/kb/ingestion_pipeline.py](../kb/ingestion_pipeline.py)).
+That gives session uploads (small, latency-sensitive) a fair shot at the
+same shared docling-service replicas as KB uploads (potentially huge),
+because the `asyncio.Semaphore` interleaves chunks across both paths.
+
+Returns markdown joined from the merged section list so the caller can
+drop it straight into the session-document context block.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from typing import Any
 import httpx
 
 from core.settings import DOCLING_SERVICE_URL
+from kb.ingestion_pipeline import parse_pdf_async
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +65,7 @@ async def extract_markdown(
     *,
     timeout_s: float = 120.0,
 ) -> str:
-    """POST a PDF to the Docling service and return joined Markdown.
+    """Run the PDF through `parse_pdf_async` and return joined Markdown.
 
     Raises:
         ServiceUnavailableError: if DOCLING_SERVICE_URL is unset, the
@@ -74,47 +78,35 @@ async def extract_markdown(
             "DOCLING_SERVICE_URL ist nicht konfiguriert."
         )
 
-    url = f"{DOCLING_SERVICE_URL}/process"
-    timeout = httpx.Timeout(connect=2.0, read=timeout_s, write=30.0, pool=5.0)
-
     try:
-        with open(file_path, "rb") as fh:
-            files = {"file": (file_path.name, fh, "application/pdf")}
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.post(url, files=files)
+        sections = await parse_pdf_async(file_path)
     except (httpx.ConnectError, httpx.TimeoutException, OSError) as exc:
         logger.warning(
-            "session_upload.docling_unavailable url=%s reason=%s",
-            url, type(exc).__name__,
+            "session_upload.docling_unavailable file=%s reason=%s",
+            file_path.name, type(exc).__name__,
         )
         raise ServiceUnavailableError(
             "Docling-Service nicht erreichbar."
         ) from exc
-
-    if resp.status_code >= 500:
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code if exc.response is not None else 0
         logger.warning(
-            "session_upload.docling_5xx url=%s status=%d", url, resp.status_code
+            "session_upload.docling_http_error file=%s status=%d",
+            file_path.name, status,
         )
-        raise ServiceUnavailableError(
-            f"Docling-Service antwortete mit {resp.status_code}."
-        )
-    if resp.status_code >= 400:
-        logger.warning(
-            "session_upload.docling_4xx url=%s status=%d body=%s",
-            url, resp.status_code, resp.text[:200],
-        )
+        if status >= 500:
+            raise ServiceUnavailableError(
+                f"Docling-Service antwortete mit {status}."
+            ) from exc
         raise ExtractionError(
-            f"Docling lehnte die Datei ab (HTTP {resp.status_code})."
-        )
-
-    try:
-        payload = resp.json()
+            f"Docling lehnte die Datei ab (HTTP {status})."
+        ) from exc
     except ValueError as exc:
-        logger.warning("session_upload.docling_bad_json url=%s", url)
-        raise ExtractionError("Docling-Antwort war kein gültiges JSON.") from exc
+        # _post_chunk raises ValueError on malformed JSON / missing sections.
+        logger.warning("session_upload.docling_bad_payload file=%s", file_path.name)
+        raise ExtractionError(str(exc)) from exc
 
-    sections = payload.get("sections") if isinstance(payload, dict) else None
-    if not isinstance(sections, list) or not sections:
+    if not sections:
         raise ExtractionError(
             "Docling lieferte keine extrahierten Abschnitte zurück."
         )
@@ -124,7 +116,7 @@ async def extract_markdown(
         raise ExtractionError("Aus dem Dokument konnte kein Text extrahiert werden.")
 
     logger.info(
-        "session_upload.docling_ok url=%s sections=%d chars=%d",
-        url, len(sections), len(markdown),
+        "session_upload.docling_ok file=%s sections=%d chars=%d",
+        file_path.name, len(sections), len(markdown),
     )
     return markdown
