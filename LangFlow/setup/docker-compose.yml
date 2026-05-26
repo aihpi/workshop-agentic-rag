@@ -1,10 +1,12 @@
 services:
   langflow:
-    image: langflowai/langflow:latest
+    image: langflowai/langflow:1.9.0
     ports:
       - "7860:7860"
     environment:
       - LANGFLOW_STORE_ENVIRONMENT_VARIABLES=true
+      - LANGFLOW_VARIABLES_TO_GET_FROM_ENVIRONMENT=AISC_API_KEY,AISC_BASE_URL,QDRANT_URL,QDRANT_API_KEY
+      - LANGFLOW_FALLBACK_TO_ENV_VAR=true
       - LANGFLOW_REMOVE_API_KEYS=false
       - LANGFLOW_AUTO_LOGIN=true
     env_file:
@@ -12,6 +14,7 @@ services:
     volumes:
       - langflow_data:/app/langflow
       - ../data:/app/flows/data:ro
+      - ../memory:/app/flows/memory
     depends_on:
       qdrant:
         condition: service_started
