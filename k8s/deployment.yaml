@@ -63,7 +63,7 @@ spec:
             # granite-4-h-tiny, ministral-3-14b. gpt-oss-120b + llama-3-3-70b
             # are Pending.
             - name: FALLBACK_CHAT_MODEL
-              value: openai/ministral-3-14b
+              value: openai/gemma-4-31b
             # SQLite holds user KBs, settings, starters, chat history — all
             # load-bearing UI state. Default path (/app/.chainlit/chat_history.sqlite3)
             # is ephemeral; a pod restart wipes every user's KBs even though
