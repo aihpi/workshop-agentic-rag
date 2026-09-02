@@ -23,6 +23,10 @@
   window.addEventListener("popstate", markLoginPage);
 
   function fetchRole() {
+    // On /login nobody is authenticated yet. Chainlit then navigates to "/"
+    // client-side (no reload), so caching the 401-derived "user" here would
+    // hide admin links until a manual refresh.
+    if (isOnLoginPage()) return Promise.resolve("user");
     if (rolePromise) return rolePromise;
     rolePromise = fetch("/api/me", { credentials: "include" })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -207,13 +211,14 @@
   }
 
   function hideAdminLinksIfNotAdmin() {
-    if (cachedRole === "admin") return;
+    // Also un-hides: the role may resolve to admin after the links were hidden.
+    const show = cachedRole === "admin";
     const links = document.querySelectorAll(
       'a[href="' + ADMIN_URL + '"], a[href="' + CODE_URL + '"]'
     );
     links.forEach(function (link) {
       const container = link.closest("li, button, div, span") || link;
-      container.style.display = "none";
+      container.style.display = show ? "" : "none";
     });
   }
 
@@ -669,7 +674,7 @@
     ensureLegalFooter();
     interceptSettingsLinks();
     interceptCodeLinks();
-    hideAdminLinksIfNotAdmin();
+    fetchRole().then(hideAdminLinksIfNotAdmin);
     // Chainlit navigates /login → / via client-side routing with no page
     // reload. The observer fires on the DOM churn that follows the nav,
     // so this is where we retry the terms fetch once we're actually
