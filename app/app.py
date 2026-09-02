@@ -345,41 +345,64 @@ def _cache_citation_panel_content(step_id: str, panel_content: str, *, max_items
         CITATION_PANEL_CACHE.pop(oldest_key, None)
 
 
-def _ensure_route_precedes_catch_all(fastapi_app: Any, route_path: str) -> None:
+CATCH_ALL_SUFFIX = "/{full_path:path}"
+
+
+def _holds_catch_all(entry: Any) -> bool:
+    """True if `entry` is Chainlit's SPA catch-all, or a router containing it.
+
+    Chainlit's routes arrive as a single nested `_IncludedRouter` entry with no
+    `path` of its own, so matching on `path` alone silently misses it — which is
+    how every GET on /api/* and /settings/app ended up served the SPA while
+    POST/PATCH on the same paths worked. Handle both shapes so a future
+    flattening (or un-flattening) doesn't break it again.
+    """
+    path = getattr(entry, "path", None)
+    if isinstance(path, str) and path.endswith(CATCH_ALL_SUFFIX):
+        return True
+    # Nested case: FastAPI keeps an included router as a single opaque entry
+    # exposing `original_router`, with the real routes one level down.
+    nested = getattr(entry, "original_router", entry)
+    return any(
+        isinstance(getattr(sub, "path", None), str)
+        and str(getattr(sub, "path")).endswith(CATCH_ALL_SUFFIX)
+        for sub in getattr(nested, "routes", None) or ()
+    )
+
+
+def _move_catch_all_last(fastapi_app: Any) -> None:
+    """Push the SPA catch-all (or the router holding it) to the end.
+
+    The catch-all is a fallback, so its only correct position is last. One call
+    after routes are registered, with no list of paths to keep in sync.
+    """
     routes = getattr(getattr(fastapi_app, "router", None), "routes", None)
     if not isinstance(routes, list):
         return
-
-    # Move every route with this path above the catch-all, preserving order.
-    # (Multi-method paths like GET+POST /api/kbs register as separate APIRoutes.)
-    while True:
-        catch_all_idx = next(
-            (
-                i
-                for i, route in enumerate(routes)
-                if isinstance(getattr(route, "path", None), str)
-                and str(getattr(route, "path")).endswith("/{full_path:path}")
-            ),
-            None,
-        )
-        if catch_all_idx is None:
+    for i, entry in enumerate(list(routes)):
+        if _holds_catch_all(entry):
+            routes.append(routes.pop(i))
+            print(f"[STARTUP] moved SPA catch-all from index {i} to last")
             return
+    print("[WARN] SPA catch-all not found; /api GETs may be shadowed")
 
-        route_idx = next(
-            (
-                i
-                for i, route in enumerate(routes)
-                if i > catch_all_idx and getattr(route, "path", None) == route_path
-            ),
-            None,
-        )
-        if route_idx is None:
-            return
-
-        route = routes.pop(route_idx)
-        routes.insert(catch_all_idx, route)
 
 # Chat profiles configuration
+class RegisterRequest(BaseModel):
+    """Body of POST /auth/register.
+
+    MUST live at module level: app.py uses `from __future__ import annotations`,
+    so FastAPI resolves the handler's annotation from the module globals. A class
+    defined inside the startup function is invisible there, and FastAPI silently
+    demotes the parameter to a query param — every request then 422s with
+    {"loc": ["query", "request"]} and the body is never parsed.
+    """
+
+    email: str
+    password: str
+    invite_code: str = ""
+
+
 CHAT_PROFILES_PATH = Path(__file__).parent / "chat_profiles.json"
 
 
@@ -2629,7 +2652,7 @@ async def on_app_startup() -> None:
     if not getattr(chainlit_fastapi_app.state, "user_api_routes_added", False):
         from api.api_routes import register_user_api_routes
 
-        user_routes = register_user_api_routes(chainlit_fastapi_app, SYSTEM_PROMPT)
+        register_user_api_routes(chainlit_fastapi_app, SYSTEM_PROMPT)
 
         static_dir = Path(__file__).parent / "static"
         static_dir.mkdir(parents=True, exist_ok=True)
@@ -2670,11 +2693,7 @@ async def on_app_startup() -> None:
                 return RedirectResponse(url="/", status_code=307)
             return FileResponse(str(static_dir / "admin.html"), media_type="text/html")
 
-        for path in user_routes:
-            _ensure_route_precedes_catch_all(chainlit_fastapi_app, path)
-        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/health")
-        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/settings/app")
-        _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/admin/app")
+        _move_catch_all_last(chainlit_fastapi_app)
 
         chainlit_fastapi_app.state.user_api_routes_added = True
         print("[STARTUP] user-scoped API routes registered: /api/kbs, /api/settings/...")
@@ -2759,11 +2778,6 @@ async def on_app_startup() -> None:
         return FileResponse(path=str(bundle), media_type="application/zip", filename=bundle.name)
 
     # Registration endpoint for self-registration
-    class RegisterRequest(BaseModel):
-        email: str
-        password: str
-        invite_code: str = ""
-
     @chainlit_fastapi_app.post("/auth/register")
     async def register_user(request: RegisterRequest):
         """Invite-code gated self-registration.
@@ -2818,10 +2832,8 @@ async def on_app_startup() -> None:
 
         return {"message": "Registrierung erfolgreich", "username": user["identifier"]}
 
-    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/sources/pdf/{identifier:path}")
-    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/sources/citations/{step_id}")
-    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/export/all-chats")
-    _ensure_route_precedes_catch_all(chainlit_fastapi_app, "/auth/register")
+    # Anything registered above lands after the catch-all; push it last again.
+    _move_catch_all_last(chainlit_fastapi_app)
 
     chainlit_fastapi_app.state.native_export_route_added = True
     print("[STARTUP] native export route registered at /export/all-chats")
