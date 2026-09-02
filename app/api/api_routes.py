@@ -44,7 +44,7 @@ from chat.native_chat import (
 
 import bcrypt
 from api.prompt_generator import generate_starters, generate_system_prompt
-from core.registration import current_code, next_rotation_utc
+from core.registration import current_code, next_rotation_utc, today_utc
 from core.settings import (
     CHAINLIT_AUTH_USERNAME,
     CHAT_DB_PATH,
@@ -243,11 +243,11 @@ async def hard_delete_user(identifier: str) -> dict[str, Any]:
 # Registration
 # ---------------------------------------------------------------------------
 
-def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None) -> list[str]:
+def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None) -> None:
     """Attach the /api/* routes to the given FastAPI app.
 
-    Returns the list of registered paths so the caller can nudge them above
-    the Chainlit catch-all route.
+    Ordering relative to Chainlit's SPA catch-all is handled by the caller
+    moving the catch-all last, so nothing here needs to be listed anywhere.
     """
 
     @fastapi_app.get("/api/kbs")
@@ -605,11 +605,12 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
         day's code also still validates (rollover grace).
         """
         await _require_admin(current_user)
-        code = current_code(REGISTRATION_INVITE_SECRET)
+        day = today_utc()  # one clock read so code and rotates_at agree at midnight
+        code = current_code(REGISTRATION_INVITE_SECRET, day)
         return {
             "enabled": bool(code),
             "code": code,
-            "rotates_at": next_rotation_utc().isoformat() if code else None,
+            "rotates_at": next_rotation_utc(day).isoformat() if code else None,
         }
 
     @fastapi_app.get("/api/admin/users")
@@ -738,19 +739,3 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             )
         return row
 
-    return [
-        "/api/kbs",
-        "/api/kbs/{kb_id}",
-        "/api/kbs/{kb_id}/documents",
-        "/api/kbs/{kb_id}/documents/{doc_id}",
-        "/api/kbs/{kb_id}/generate/system-prompt",
-        "/api/kbs/{kb_id}/generate/starters",
-        "/api/settings/system-prompt",
-        "/api/settings/starters",
-        "/api/me",
-        "/api/admin/invite-code",
-        "/api/admin/users",
-        "/api/admin/users/{user_id}",
-        "/api/terms",
-        "/api/terms/accept",
-    ]

@@ -389,7 +389,8 @@
     try {
       renderInvite(await api("/api/admin/invite-code"));
     } catch (err) {
-      renderInvite(null);
+      document.getElementById("invite-code").textContent = "Konnte nicht geladen werden";
+      document.getElementById("invite-meta").textContent = err.message;
     }
   };
 

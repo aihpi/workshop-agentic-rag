@@ -2807,7 +2807,8 @@ async def on_app_startup() -> None:
 
         # Format checks never touch the failure counter.
         email = (request.email or "").strip().lower()
-        if "@" not in email.strip("@"):
+        local, at, domain = email.partition("@")
+        if not (local and at and domain) or "@" in domain:
             raise HTTPException(status_code=400, detail="Ungültige E-Mail-Adresse")
         if not request.password or len(request.password) < 8:
             raise HTTPException(status_code=400, detail="Passwort muss mindestens 8 Zeichen haben")
