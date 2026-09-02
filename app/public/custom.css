@@ -469,7 +469,10 @@ body > .legal-footer a {
 .code-modal-title { font-size: 0.85rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.06em; }
 .code-modal-code {
   /* Projector-sized: meant to be held up to a room. */
-  font-size: clamp(1.8rem, 6.5vw, 6rem);
+  /* Measured: 19 chars ≈ 12.2em wide. Card inner width is min(960px, 100%)
+     minus 56px padding, so 4.5rem (72px → ~880px) fits the cap and 6.8vw
+     keeps it inside on narrower windows. */
+  font-size: clamp(1.6rem, 6.8vw, 4.5rem);
   white-space: nowrap;
   font-weight: 700;
   letter-spacing: 0.03em;
