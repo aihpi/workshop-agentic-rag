@@ -137,8 +137,7 @@ async def create_user(
             """
             INSERT INTO "User" (identifier, email, password_hash, metadata)
             VALUES ($1, $2, $3, '{"provider": "local"}')
-            ON CONFLICT (identifier) DO NOTHING
-            ON CONFLICT (email) DO NOTHING
+            ON CONFLICT DO NOTHING
             RETURNING id, identifier, email, metadata, "createdAt"
             """,
             username,

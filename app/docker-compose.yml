@@ -45,6 +45,8 @@ services:
       CHAINLIT_AUTH_SECRET: ${CHAINLIT_AUTH_SECRET:-change-me}
       CHAINLIT_AUTH_USERNAME: ${CHAINLIT_AUTH_USERNAME:-admin}
       CHAINLIT_AUTH_PASSWORD: ${CHAINLIT_AUTH_PASSWORD:-admin}
+      # Seed for the rotating invite code. Empty = self-registration closed.
+      REGISTRATION_INVITE_SECRET: ${REGISTRATION_INVITE_SECRET:-}
       CHAINLIT_INIT_DB: ${CHAINLIT_INIT_DB:-true}
       # IMPORTANT: inside Docker network, use service DNS name (not localhost)
       QDRANT_URL: http://qdrant:6333

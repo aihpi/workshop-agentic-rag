@@ -44,6 +44,7 @@ from chat.native_chat import (
 
 import bcrypt
 from api.prompt_generator import generate_starters, generate_system_prompt
+from core.registration import current_code, next_rotation_utc
 from core.settings import (
     CHAINLIT_AUTH_USERNAME,
     CHAT_DB_PATH,
@@ -51,6 +52,7 @@ from core.settings import (
     DATABASE_URL,
     MAX_FILE_SIZE_MB,
     QDRANT_COLLECTION,
+    REGISTRATION_INVITE_SECRET,
     TERMS_VERSION,
 )
 from kb.user_kb import (
@@ -592,6 +594,22 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
             "version": TERMS_VERSION,
             "accepted_at": row["accepted_at"],
             "accepted_version": row["accepted_version"],
+        }
+
+    @fastapi_app.get("/api/admin/invite-code")
+    async def admin_invite_code(current_user=Depends(get_current_user)):
+        """Today's self-registration code, for reading out to participants.
+
+        Derived from REGISTRATION_INVITE_SECRET + the UTC date, so there is
+        nothing to create or revoke here — it rotates on its own. The previous
+        day's code also still validates (rollover grace).
+        """
+        await _require_admin(current_user)
+        code = current_code(REGISTRATION_INVITE_SECRET)
+        return {
+            "enabled": bool(code),
+            "code": code,
+            "rotates_at": next_rotation_utc().isoformat() if code else None,
         }
 
     @fastapi_app.get("/api/admin/users")

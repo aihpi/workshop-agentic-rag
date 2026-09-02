@@ -52,6 +52,7 @@ from chat.native_chat import (
     upsert_user_on_login,
 )
 from kb.rag_tool import build_context, extract_page, extract_source_file, format_citations, retrieve, personalized_retrieve
+from core.registration import code_matches, is_locked, record_failure
 from core.settings import (
     ADMIN_IDENTIFIERS,
     CHAT_DB_PATH,
@@ -71,6 +72,7 @@ from core.settings import (
     PERSONALIZED_FOLLOWUPS_COUNT,
     PROFILE_MIN_MESSAGES,
     QDRANT_COLLECTION,
+    REGISTRATION_INVITE_SECRET,
     STARTER_QUESTIONS,
     SYSTEM_PROMPT_PATH,
     TOP_K,
@@ -2758,32 +2760,61 @@ async def on_app_startup() -> None:
 
     # Registration endpoint for self-registration
     class RegisterRequest(BaseModel):
-        username: str
         email: str
         password: str
+        invite_code: str = ""
 
     @chainlit_fastapi_app.post("/auth/register")
     async def register_user(request: RegisterRequest):
-        # Validate input
-        if not request.username or len(request.username) < 3:
-            raise HTTPException(status_code=400, detail="Benutzername muss mindestens 3 Zeichen haben")
-        if not request.email or "@" not in request.email:
+        """Invite-code gated self-registration.
+
+        The identifier is always the e-mail. Never accept a caller-supplied
+        username here: this endpoint is unauthenticated, so an arbitrary
+        identifier lets anyone squat "admin" and lock the env admin out of
+        their own account (auth_callback checks the DB row first and returns
+        early on a password mismatch, never reaching the env fallback).
+        """
+        # Kill switch: no seed configured ⇒ registration does not exist here.
+        if not REGISTRATION_INVITE_SECRET:
+            raise HTTPException(status_code=503, detail="Registrierung ist derzeit geschlossen.")
+        if not DATABASE_URL:
+            raise HTTPException(status_code=503, detail="Registrierung ist nicht konfiguriert.")
+
+        # Throttle before any bcrypt work, and before record_failure() so that
+        # attempts during a lock don't slide the window forward.
+        if is_locked():
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Zu viele Fehlversuche. Die Registrierung ist vorübergehend "
+                    "gesperrt. Bitte in etwa 10 Minuten erneut versuchen."
+                ),
+            )
+
+        # Format checks never touch the failure counter.
+        email = (request.email or "").strip().lower()
+        if "@" not in email.strip("@"):
             raise HTTPException(status_code=400, detail="Ungültige E-Mail-Adresse")
         if not request.password or len(request.password) < 8:
             raise HTTPException(status_code=400, detail="Passwort muss mindestens 8 Zeichen haben")
 
-        # Check if user/email already exists
-        exists = await check_user_exists(DATABASE_URL, request.username, request.email)
-        if exists["username_exists"]:
-            raise HTTPException(status_code=409, detail="Benutzername bereits vergeben")
-        if exists["email_exists"]:
+        # The gate. Only this path counts as a failure.
+        if not code_matches(request.invite_code or "", REGISTRATION_INVITE_SECRET):
+            record_failure()
+            print("[REGISTER] invite code mismatch")  # never log the submitted value
+            raise HTTPException(status_code=403, detail="Ungültiger Einladungscode.")
+
+        exists = await check_user_exists(DATABASE_URL, email, email)
+        if exists["username_exists"] or exists["email_exists"]:
             raise HTTPException(status_code=409, detail="E-Mail-Adresse bereits registriert")
 
-        # Create user with hashed password
-        password_hash = _hash_password(request.password)
-        user = await create_user(DATABASE_URL, request.username, request.email, password_hash)
+        # bcrypt is sync and ~200ms; off the event loop so a room full of
+        # people registering at once doesn't stall the whole app.
+        password_hash = await asyncio.to_thread(_hash_password, request.password)
+        user = await create_user(DATABASE_URL, email, email, password_hash)
         if user is None:
-            raise HTTPException(status_code=500, detail="Registrierung fehlgeschlagen")
+            # ON CONFLICT DO NOTHING: lost the race against a concurrent signup.
+            raise HTTPException(status_code=409, detail="E-Mail-Adresse bereits registriert")
 
         return {"message": "Registrierung erfolgreich", "username": user["identifier"]}
 

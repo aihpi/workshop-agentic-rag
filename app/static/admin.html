@@ -125,6 +125,13 @@
   <h1>Benutzer</h1>
 </header>
 <main>
+  <section id="invite-section" style="margin-bottom: 24px;">
+    <h2>Einladungscode</h2>
+    <div class="sub">Code für die Selbstregistrierung auf der Login-Seite. Er wird täglich automatisch neu erzeugt — der Code des Vortags bleibt zusätzlich gültig. Zum Schließen der Registrierung <code>REGISTRATION_INVITE_SECRET</code> entfernen.</div>
+    <div id="invite-code" style="font-size: 1.4rem; font-weight: 600; letter-spacing: 0.02em;">—</div>
+    <div id="invite-meta" class="sub" style="margin-top: 4px;"></div>
+  </section>
+
   <section id="create-section" style="margin-bottom: 24px;">
     <h2>Neuer Nutzer</h2>
     <div class="sub">Benutzername und Einmal-Passwort für einen HPI-internen Zugang anlegen. Der Nutzer kann sich direkt mit diesen Daten anmelden.</div>
@@ -354,6 +361,20 @@
     }
   });
 
+  const renderInvite = (info) => {
+    const codeEl = document.getElementById("invite-code");
+    const metaEl = document.getElementById("invite-meta");
+    if (!info || !info.enabled) {
+      codeEl.textContent = "Registrierung geschlossen";
+      metaEl.textContent = "REGISTRATION_INVITE_SECRET ist nicht gesetzt.";
+      return;
+    }
+    codeEl.textContent = info.code;
+    metaEl.textContent = info.rotates_at
+      ? `Gültig bis ${fmtDate(info.rotates_at)} (danach neuer Code)`
+      : "";
+  };
+
   const reload = async () => {
     try {
       const [{ users }, me] = await Promise.all([
@@ -363,6 +384,12 @@
       render(users, me);
     } catch (err) {
       setStatus(err.message, "err");
+    }
+    // Separate try: a missing/failing invite endpoint must not blank the user table.
+    try {
+      renderInvite(await api("/api/admin/invite-code"));
+    } catch (err) {
+      renderInvite(null);
     }
   };
 

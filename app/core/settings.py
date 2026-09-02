@@ -143,6 +143,12 @@ CHAINLIT_AUTH_USERNAME = _getenv("CHAINLIT_AUTH_USERNAME", "admin")
 CHAINLIT_AUTH_PASSWORD = _getenv("CHAINLIT_AUTH_PASSWORD", "admin")
 CHAINLIT_INIT_DB = (_getenv("CHAINLIT_INIT_DB", "true") or "true").lower() == "true"
 
+# Seed for the rotating self-registration invite code. The code itself is
+# derived (HMAC of seed + UTC date, see core/registration.py) and changes every
+# 24h, so this value is a long-lived secret and NOT the code you read out.
+# Unset/empty ⇒ /auth/register is closed entirely (post-workshop kill switch).
+REGISTRATION_INVITE_SECRET = (_getenv("REGISTRATION_INVITE_SECRET", "") or "").strip()
+
 # Comma-separated list of GitHub logins / usernames auto-promoted to role=admin
 # on each login. Empty ⇒ admin role can only be granted manually via the admin UI.
 ADMIN_IDENTIFIERS = _getenv_list("ADMIN_IDENTIFIERS", default=[], sep=",")

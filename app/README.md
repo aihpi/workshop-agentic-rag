@@ -110,6 +110,24 @@ For native left sidebar history, keep these env vars set:
 - `CHAINLIT_AUTH_USERNAME`
 - `CHAINLIT_AUTH_PASSWORD`
 
+Self-registration ("Konto erstellen" on the login page):
+- `REGISTRATION_INVITE_SECRET=<long random string>` — the **seed**, not the code.
+  The code participants type is derived as `workshop-rag-<6 digits>` from
+  `HMAC(seed, UTC date)` and **rotates every 24h** on its own: nothing is stored,
+  nothing needs creating or revoking. See `core/registration.py`.
+- **Today's code is shown in the admin UI**, top of the Benutzer page — read it out
+  or put it on a slide. Yesterday's code stays valid too, so a rollover mid-session
+  doesn't lock anyone out; a given code therefore works for up to 48h.
+- **Empty or unset seed closes registration entirely** — the post-workshop kill
+  switch. In the cluster the value lives in `k8s/sealed-secret.yaml`; removing the
+  key there shuts signup off. To force a new code early, change the seed and restart.
+- Accounts are created with the e-mail as the identifier and are `approved`
+  immediately — there is no approval queue. Moderate after the fact by blocking or
+  deleting users in the admin UI.
+- Wrong-code attempts are capped globally (20 per 10 minutes). The counter is
+  in-process: it resets on restart and is per-replica, so it is a true global cap
+  only while `replicas: 1`.
+
 Optional Langflow routing:
 - `LANGFLOW_ENABLED=true`
 - `LANGFLOW_BASE_URL=http://langflow:7860` (Docker) or `http://localhost:7860` (local)

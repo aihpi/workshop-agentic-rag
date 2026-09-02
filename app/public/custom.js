@@ -427,7 +427,151 @@
     }
   }
 
+  // ---- Self-registration ("Konto erstellen") -------------------------------
+  // Chainlit's login page has no signup UI, so we add one button under the
+  // form. It reuses the existing #email / #password inputs, POSTs them to
+  // /auth/register, then logs in via Chainlit's own /login endpoint.
+  const SIGNUP_ID = "signup-block";
+  const CODE_INPUT_ID = "invite-code";
+
+  async function doSignup(button, status) {
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const codeInput = document.getElementById(CODE_INPUT_ID);
+    if (!emailInput || !passwordInput) return;
+    const email = (emailInput.value || "").trim().toLowerCase();
+    const password = passwordInput.value || "";
+    const inviteCode = codeInput ? (codeInput.value || "").trim() : "";
+
+    function fail(msg) {
+      status.style.color = "#dc2626";
+      status.textContent = msg;
+    }
+    if (!email || email.indexOf("@") < 1) return fail("Bitte eine gültige E-Mail-Adresse eingeben.");
+    if (password.length < 8) return fail("Das Passwort muss mindestens 8 Zeichen haben.");
+    if (!inviteCode) return fail("Bitte den Einladungscode eingeben.");
+
+    button.disabled = true;
+    status.style.color = "inherit";
+    status.textContent = "Konto wird erstellt …";
+    try {
+      const res = await fetch("/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: email, password: password, invite_code: inviteCode }),
+      });
+      if (!res.ok) {
+        let detail = "Registrierung fehlgeschlagen.";
+        try {
+          const data = await res.json();
+          if (data && data.detail) detail = data.detail;
+        } catch (e) { /* keep default */ }
+        button.disabled = false;
+        if (res.status === 403 && codeInput) {
+          // Wrong code — clear it so a retry can't resend the same value.
+          codeInput.value = "";
+          codeInput.focus();
+        }
+        if ((res.status === 429 || res.status === 503) && codeInput) {
+          codeInput.disabled = true; // not coming back this minute
+        }
+        return fail(detail);
+      }
+      // Registered — log straight in with the same credentials.
+      status.textContent = "Konto erstellt, Anmeldung läuft …";
+      const form = new FormData();
+      form.append("username", email);
+      form.append("password", password);
+      const login = await fetch("/login", { method: "POST", credentials: "include", body: form });
+      if (login.ok) {
+        window.location.href = "/";
+        return;
+      }
+      status.style.color = "inherit";
+      status.textContent = "Konto erstellt. Bitte jetzt anmelden.";
+      button.disabled = false;
+    } catch (e) {
+      button.disabled = false;
+      fail("Registrierung fehlgeschlagen. Bitte später erneut versuchen.");
+    }
+  }
+
+  function ensureSignup() {
+    if (!isOnLoginPage()) {
+      const stale = document.getElementById(SIGNUP_ID);
+      if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+      return;
+    }
+    if (document.getElementById(SIGNUP_ID)) return;
+
+    const passwordInput = document.getElementById("password");
+    if (!passwordInput) return; // password auth disabled — nothing to hook onto
+    const form = passwordInput.closest("form");
+    const submit = form && form.querySelector('button[type="submit"]');
+    if (!submit || !submit.parentNode) return;
+
+    const block = document.createElement("div");
+    block.id = SIGNUP_ID;
+    block.style.display = "grid";
+    block.style.gap = "0.5rem";
+
+    const hint = document.createElement("p");
+    hint.textContent = "Noch kein Konto? E-Mail und Passwort oben eingeben, dazu den Einladungscode:";
+    hint.style.fontSize = "0.8rem";
+    hint.style.opacity = "0.7";
+    hint.style.margin = "0";
+
+    const codeLabel = document.createElement("label");
+    codeLabel.htmlFor = CODE_INPUT_ID;
+    codeLabel.textContent = "Einladungscode";
+    codeLabel.style.fontSize = "0.8rem";
+
+    const codeInput = document.createElement("input");
+    codeInput.type = "text";
+    codeInput.id = CODE_INPUT_ID;
+    codeInput.name = CODE_INPUT_ID;
+    codeInput.autocomplete = "off";
+    codeInput.spellcheck = false;
+    // Chainlit renders no such field, so this one is ours — but borrow the
+    // password input's classes so it looks native in both themes.
+    codeInput.className = passwordInput.className;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    // Match the look of the OAuth buttons (outline variant) when present,
+    // otherwise fall back to the submit button's classes.
+    const oauthButton = form.querySelector('button[type="button"][class*="border"]');
+    button.className = (oauthButton || submit).className;
+    button.textContent = "Konto erstellen";
+
+    const status = document.createElement("p");
+    status.style.fontSize = "0.8rem";
+    status.style.margin = "0";
+
+    button.addEventListener("click", function () {
+      doSignup(button, status);
+    });
+
+    // Our block sits inside Chainlit's <form>, so a bare Enter here would
+    // submit the login form instead of registering.
+    codeInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        doSignup(button, status);
+      }
+    });
+
+    block.appendChild(hint);
+    block.appendChild(codeLabel);
+    block.appendChild(codeInput);
+    block.appendChild(button);
+    block.appendChild(status);
+    submit.parentNode.insertBefore(block, submit.nextSibling);
+  }
+
   const observer = new MutationObserver(function () {
+    ensureSignup();
     ensureHint();
     ensureLegalFooter();
     interceptSettingsLinks();
@@ -441,12 +585,14 @@
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   window.addEventListener("load", function () {
+    ensureSignup();
     ensureHint();
     ensureLegalFooter();
     interceptSettingsLinks();
     fetchRole().then(hideAdminLinksIfNotAdmin);
     loadAndMaybeShowTerms();
   });
+  ensureSignup();
   ensureHint();
   ensureLegalFooter();
   interceptSettingsLinks();

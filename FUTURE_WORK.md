@@ -72,3 +72,24 @@ Every `main` push accumulates a `sha-*` tag forever. Add a cleanup workflow (kee
 ## PR preview builds
 
 CI workflow only builds, doesn't push. A `type=ref,event=pr` tag + per-PR image would let reviewers pull and run before merge. Useful once we have reviewers.
+
+## Registration hardening
+
+Self-registration ([app/app.py](app/app.py) `/auth/register`) is gated by a shared
+invite code only. Deferred, in rough priority order:
+
+- **E-mail verification.** Needs SMTP credentials (HPI relay or a provider + DKIM/SPF),
+  a token table, and a `pending` status — which today does not exist: `status` is only
+  ever `approved`/`blocked`, hardcoded in both login callbacks, two validation regexes,
+  and the admin UI's pill logic.
+- **Password reset.** Same SMTP prerequisite. Right now a forgotten password means an
+  admin deletes the account and the user re-registers.
+- **Admin-managed invite codes.** The code is derived and rotates daily, so there is
+  no way to revoke one before its window ends or to hand different groups different
+  codes. If either is ever needed, that's an `invite_codes` table plus create/revoke
+  routes and an admin UI section — deliberately skipped as unnecessary for a workshop.
+- **Persistent failure counter.** The wrong-code cap in
+  [app/core/registration.py](app/core/registration.py) is in-process: it resets on pod
+  restart and is per-replica, so scaling past `replicas: 1` multiplies the effective
+  limit. Move to a Postgres row if either becomes true.
+
