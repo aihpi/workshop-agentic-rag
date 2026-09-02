@@ -748,6 +748,7 @@ def register_user_api_routes(fastapi_app: Any, default_system_prompt: str | None
         "/api/settings/system-prompt",
         "/api/settings/starters",
         "/api/me",
+        "/api/admin/invite-code",
         "/api/admin/users",
         "/api/admin/users/{user_id}",
         "/api/terms",
