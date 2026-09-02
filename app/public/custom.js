@@ -5,6 +5,9 @@
   const LEGAL_FOOTER_ID = "legal-footer";
   const SETTINGS_URL = "/settings/app";
   const ADMIN_URL = "/admin/app";
+  // Virtual href for the header link: no server route, custom.js intercepts it.
+  const CODE_URL = "/admin/code";
+  const CODE_MODAL_ID = "code-modal-overlay";
   const IFRAME_URLS = [SETTINGS_URL, ADMIN_URL];
   let settingsDirty = false;
   let cachedRole = null;
@@ -77,7 +80,9 @@
     const overlay = ensureSettingsModal();
     const iframe = overlay.querySelector("iframe");
     const base = url || SETTINGS_URL;
-    const target = base + "?theme=" + detectChainlitTheme();
+    // Cache-bust: without this the browser kept serving a stale admin/settings
+    // page after deploys (no Cache-Control on the response, heuristic caching).
+    const target = base + "?theme=" + detectChainlitTheme() + "&v=" + Date.now();
     iframe.src = target;
     settingsDirty = false;
     overlay.classList.add("open");
@@ -118,9 +123,94 @@
     });
   }
 
+  // ---- Workshop-Code modal (admin only) ------------------------------------
+  function ensureCodeModal() {
+    let overlay = document.getElementById(CODE_MODAL_ID);
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = CODE_MODAL_ID;
+    overlay.className = "settings-modal-overlay";
+    overlay.innerHTML =
+      '<div class="code-modal" role="dialog" aria-modal="true" aria-label="Workshop-Code">' +
+      '<button type="button" class="settings-modal-close" aria-label="Schließen">×</button>' +
+      '<div class="code-modal-title">Workshop-Code</div>' +
+      '<div class="code-modal-code">…</div>' +
+      '<div class="code-modal-meta"></div>' +
+      '<button type="button" class="code-modal-users">Benutzer verwalten</button>' +
+      "</div>";
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeCodeModal();
+    });
+    overlay.querySelector(".settings-modal-close").addEventListener("click", closeCodeModal);
+    overlay.querySelector(".code-modal-users").addEventListener("click", function () {
+      closeCodeModal();
+      openSettingsModal(ADMIN_URL);
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function escCodeHandler(e) {
+    if (e.key === "Escape") closeCodeModal();
+  }
+
+  function closeCodeModal() {
+    const overlay = document.getElementById(CODE_MODAL_ID);
+    if (!overlay) return;
+    overlay.classList.remove("open");
+    document.body.style.overflow = "";
+    document.removeEventListener("keydown", escCodeHandler);
+  }
+
+  function openCodeModal() {
+    const overlay = ensureCodeModal();
+    const codeEl = overlay.querySelector(".code-modal-code");
+    const metaEl = overlay.querySelector(".code-modal-meta");
+    codeEl.textContent = "…";
+    metaEl.textContent = "";
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", escCodeHandler);
+    fetch("/api/admin/invite-code", { credentials: "include", cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (info) {
+        if (!info.enabled) {
+          codeEl.textContent = "Registrierung geschlossen";
+          metaEl.textContent = "REGISTRATION_INVITE_SECRET ist nicht gesetzt.";
+          return;
+        }
+        codeEl.textContent = info.code;
+        const until = new Date(info.rotates_at);
+        metaEl.textContent =
+          "Gültig bis " + until.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) +
+          " · der Code von gestern gilt ebenfalls noch.";
+      })
+      .catch(function (err) {
+        codeEl.textContent = "Konnte nicht geladen werden";
+        metaEl.textContent = err.message;
+      });
+  }
+
+  function interceptCodeLinks() {
+    document.querySelectorAll('a[href="' + CODE_URL + '"]').forEach(function (link) {
+      if (link.dataset.codeModalBound === "1") return;
+      link.dataset.codeModalBound = "1";
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openCodeModal();
+      });
+    });
+  }
+
   function hideAdminLinksIfNotAdmin() {
     if (cachedRole === "admin") return;
-    const links = document.querySelectorAll('a[href="' + ADMIN_URL + '"]');
+    const links = document.querySelectorAll(
+      'a[href="' + ADMIN_URL + '"], a[href="' + CODE_URL + '"]'
+    );
     links.forEach(function (link) {
       const container = link.closest("li, button, div, span") || link;
       container.style.display = "none";
@@ -407,6 +497,9 @@
   }
 
   function ensureHint() {
+    // The login page has no composer; without this guard the invite-code
+    // input (type="text") gets mistaken for it and the hint lands under the login form.
+    if (isOnLoginPage()) return;
     const anchor = findComposerAnchor();
     if (!anchor || !anchor.parentNode) return;
 
@@ -575,6 +668,7 @@
     ensureHint();
     ensureLegalFooter();
     interceptSettingsLinks();
+    interceptCodeLinks();
     hideAdminLinksIfNotAdmin();
     // Chainlit navigates /login → / via client-side routing with no page
     // reload. The observer fires on the DOM churn that follows the nav,
@@ -589,6 +683,7 @@
     ensureHint();
     ensureLegalFooter();
     interceptSettingsLinks();
+    interceptCodeLinks();
     fetchRole().then(hideAdminLinksIfNotAdmin);
     loadAndMaybeShowTerms();
   });
@@ -596,6 +691,7 @@
   ensureHint();
   ensureLegalFooter();
   interceptSettingsLinks();
+  interceptCodeLinks();
   fetchRole().then(hideAdminLinksIfNotAdmin);
   loadAndMaybeShowTerms();
 })();

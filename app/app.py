@@ -2675,7 +2675,7 @@ async def on_app_startup() -> None:
                 await _auth_user(access_token)
             except HTTPException:
                 return RedirectResponse(url="/login", status_code=307)
-            return FileResponse(str(static_dir / "settings.html"), media_type="text/html")
+            return FileResponse(str(static_dir / "settings.html"), media_type="text/html", headers={"Cache-Control": "no-store"})
 
         @chainlit_fastapi_app.get("/admin/app")
         async def serve_admin_page(access_token: str | None = Cookie(default=None)):
@@ -2691,7 +2691,7 @@ async def on_app_startup() -> None:
             pair = await get_user_role_status(DATABASE_URL, identifier)
             if pair is None or pair[0] != "admin":
                 return RedirectResponse(url="/", status_code=307)
-            return FileResponse(str(static_dir / "admin.html"), media_type="text/html")
+            return FileResponse(str(static_dir / "admin.html"), media_type="text/html", headers={"Cache-Control": "no-store"})
 
         _move_catch_all_last(chainlit_fastapi_app)
 

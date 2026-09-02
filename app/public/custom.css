@@ -453,3 +453,40 @@ body > .legal-footer a {
 .legal-footer-sep {
   opacity: 0.7;
 }
+
+/* Workshop-Code modal: small card, reuses the settings overlay + close button. */
+.code-modal {
+  position: relative;
+  width: min(960px, 100%);
+  /* Fixed colors: Chainlit's --background is an HSL triplet, not a usable value. */
+  background: #ffffff;
+  color: #111827;
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+.code-modal-title { font-size: 0.85rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.06em; }
+.code-modal-code {
+  /* Projector-sized: meant to be held up to a room. */
+  font-size: clamp(1.8rem, 6.5vw, 6rem);
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin: 10px 0 6px;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+.code-modal-meta { font-size: 1.1rem; opacity: 0.75; margin-bottom: 18px; }
+.code-modal-users {
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.code-modal-users:hover { background: rgba(127, 127, 127, 0.12); }
+html.dark .code-modal { background: #111827; color: #f9fafb; }
+

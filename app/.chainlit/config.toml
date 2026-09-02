@@ -181,10 +181,12 @@ default_avatar_file_url = ""
     target = "_self"
 
 [[UI.header_links]]
-    name = "admin-users"
-    display_name = "Benutzer"
-    icon_url = "/public/icons/briefcase.svg"
-    url = "/admin/app"
+    # Admin-only (hidden for others by custom.js). Opens a small modal showing
+    # today's self-registration code; user management is linked from inside it.
+    name = "workshop-code"
+    display_name = "Workshop-Code"
+    icon_url = "/public/icons/shield.svg"
+    url = "/admin/code"
     target = "_self"
 
 [meta]
