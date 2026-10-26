@@ -24,6 +24,15 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def ping_chat_db(db_path: Path) -> None:
+    """Raise if the DB file can't be opened and read. Used by /health.
+
+    A bare `SELECT 1` never touches the file, so read sqlite_master instead.
+    """
+    with _connect(db_path) as conn:
+        conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+
+
 def init_chat_db(db_path: Path) -> None:
     with _connect(db_path) as conn:
         conn.executescript(

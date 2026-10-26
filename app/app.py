@@ -20,7 +20,7 @@ from chainlit.auth import get_current_user
 from chainlit.input_widget import Select
 from chainlit.types import Starter
 from fastapi import Depends, HTTPException, Request, Response
-from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from chat.chat_history import (
@@ -34,6 +34,7 @@ from chat.chat_history import (
     get_user_selected_chat_profile,
     init_chat_db,
     list_chat_sessions,
+    ping_chat_db,
     set_session_title_if_missing,
     set_user_selected_chat_profile,
     update_chat_session_metadata,
@@ -2668,9 +2669,16 @@ async def on_app_startup() -> None:
 
         @chainlit_fastapi_app.get("/health")
         async def health_check():
-            """Lightweight liveness/readiness probe. Unauthenticated on purpose:
-            kubelet has no Chainlit session cookie. Returns 200 as soon as the
-            ASGI app is serving HTTP — enough to gate Service traffic on."""
+            """Liveness/readiness probe. Unauthenticated on purpose: kubelet has
+            no Chainlit session cookie. Returns 503 when the SQLite file at
+            CHAT_DB_PATH can't be read, so a broken DB stops traffic and gets
+            the pod restarted (issue #1: 7 days of "disk I/O error" behind a
+            green probe). Error details go to the log, not the response."""
+            try:
+                ping_chat_db(CHAT_DB_PATH)
+            except Exception as exc:
+                print("[HEALTH] chat_db_error", repr(exc))
+                return JSONResponse({"status": "error"}, status_code=503)
             return {"status": "ok"}
 
         @chainlit_fastapi_app.get("/settings/app")
