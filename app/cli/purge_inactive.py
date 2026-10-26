@@ -1,6 +1,13 @@
 """One-shot purge of users inactive for >= PURGE_INACTIVE_DAYS (default 90).
 
-Invoked by the k8s CronJob `purge-inactive-users` in [k8s/purge-cronjob.yaml].
+Runs daily inside the app pod via `purge_loop()` (started in app.py
+on_app_startup). It used to be a k8s CronJob, but that opened the SQLite
+file at CHAT_DB_PATH from a second pod on the NFS PVC and took the app down
+(issue #1). Never run it from another pod. Manual run, same pod:
+
+    kubectl -n workshop-agentic-rag exec deploy/workshop-app -- \
+        python -m cli.purge_inactive
+
 Reuses the same hard_delete_user orchestrator as the HTTP delete endpoints so
 cascade semantics stay in one place.
 
@@ -67,6 +74,21 @@ async def main() -> int:
         purged, failed, skipped,
     )
     return 0 if failed == 0 else 1
+
+
+async def purge_loop() -> None:
+    """Long-running background task: purge 10 min after start, then daily.
+
+    A pod restart resets the 24h interval; harmless because the purge is
+    idempotent and the 90-day window has slack.
+    """
+    await asyncio.sleep(600)
+    while True:
+        try:
+            await main()
+        except Exception:
+            log.exception("purge_loop_failed")
+        await asyncio.sleep(24 * 3600)
 
 
 if __name__ == "__main__":

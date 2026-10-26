@@ -95,14 +95,13 @@ jobs:
           echo "cpu_tag=$CPU_TAG" >> "$GITHUB_OUTPUT"
           echo "gpu_tag=$GPU_TAG" >> "$GITHUB_OUTPUT"
 
-          if [ ! -f k8s/deployment.yaml ] || [ ! -f k8s/docling-service.yaml ] || [ ! -f k8s/purge-cronjob.yaml ]; then
+          if [ ! -f k8s/deployment.yaml ] || [ ! -f k8s/docling-service.yaml ]; then
             echo "ERROR: expected manifests missing."
             exit 1
           fi
 
           echo "Pinning workshop-app → ${APP_IMAGE}:${CPU_TAG}"
           sed -i "s|image: ${APP_IMAGE}:.*|image: ${APP_IMAGE}:${CPU_TAG}|g" k8s/deployment.yaml
-          sed -i "s|image: ${APP_IMAGE}:.*|image: ${APP_IMAGE}:${CPU_TAG}|g" k8s/purge-cronjob.yaml
 
           echo "Pinning docling-service → ${DOCLING_IMAGE}:${GPU_TAG}"
           sed -i "s|image: ${DOCLING_IMAGE}:.*|image: ${DOCLING_IMAGE}:${GPU_TAG}|g" k8s/docling-service.yaml
@@ -114,12 +113,12 @@ jobs:
 
           CPU_TAG="${{ steps.bump.outputs.cpu_tag }}"
           GPU_TAG="${{ steps.bump.outputs.gpu_tag }}"
-          if git diff --exit-code k8s/deployment.yaml k8s/docling-service.yaml k8s/purge-cronjob.yaml; then
+          if git diff --exit-code k8s/deployment.yaml k8s/docling-service.yaml; then
             echo "No manifest change. Skipping commit."
             exit 0
           fi
 
-          git add k8s/deployment.yaml k8s/docling-service.yaml k8s/purge-cronjob.yaml
+          git add k8s/deployment.yaml k8s/docling-service.yaml
           git commit -m "chore: bump images app=${CPU_TAG} docling=${GPU_TAG} [skip ci]"
 
           # Push with rebase-retry. cancel-in-progress isn't atomic — if a

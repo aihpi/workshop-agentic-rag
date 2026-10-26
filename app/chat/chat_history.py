@@ -19,9 +19,18 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA journal_mode=DELETE;")
     conn.execute("PRAGMA foreign_keys=ON;")
     return conn
+
+
+def ping_chat_db(db_path: Path) -> None:
+    """Raise if the DB file can't be opened and read. Used by /health.
+
+    A bare `SELECT 1` never touches the file, so read sqlite_master instead.
+    """
+    with _connect(db_path) as conn:
+        conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
 
 
 def init_chat_db(db_path: Path) -> None:

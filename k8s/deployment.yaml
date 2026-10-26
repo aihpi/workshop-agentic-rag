@@ -69,6 +69,9 @@ spec:
             # is ephemeral; a pod restart wipes every user's KBs even though
             # the PDF files on the PVC survive. Point it at the existing
             # kb-docs PVC to make the whole picture persistent.
+            # The PVC is NFS: only this pod may open the file. A second pod
+            # (Job, debug pod) breaks SQLite locking and took the app down
+            # in 2026-10 (issue #1). Use `kubectl exec` into this pod instead.
             - name: CHAT_DB_PATH
               value: /data/kb_docs/chat_history.sqlite3
             # Public URL Chainlit uses to build OAuth redirect_uri values.
