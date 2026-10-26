@@ -61,6 +61,12 @@ If GPU Docling (OCR/layout speedup) is ever wanted, that's a separate GPU image 
 
 `DATA_KB_DOCS_DIR` is keyed by `doc_id`. If the SQLite row goes away without hitting the delete path (manual DB surgery, crash mid-upload), the file lingers forever. Low priority — waste disk, don't break anything — but a periodic "orphan sweep" job (files without a matching `kb_documents.id`) would be cheap insurance.
 
+## Move SQLite tables to Postgres (before `replicas > 1`)
+
+`CHAT_DB_PATH` is a SQLite file on the NFS PVC `workshop-app-kb-docs`. That is safe only while exactly one pod opens it: POSIX locks are not reliable across NFS clients. The `purge-inactive-users` CronJob did open it from a second pod, and SQLite deleted its WAL sidecars under the running app, so every chat start failed from 2026-10-19 to 2026-10-26 ([issue #1](https://github.com/aihpi/workshop-agentic-rag/issues/1)). Fix for now: the purge runs in the app pod ([app/cli/purge_inactive.py](app/cli/purge_inactive.py) `purge_loop`), and the journal mode is `DELETE` instead of `WAL`.
+
+Move all 7 tables (`chat_sessions`, `chat_messages`, `user_profiles` in [app/chat/chat_history.py](app/chat/chat_history.py); `knowledge_bases`, `kb_documents`, `user_settings`, `user_starters` in [app/kb/user_kb.py](app/kb/user_kb.py)) into the existing `postgres-0` before scaling past `replicas: 1`, or before any Job or debug pod needs this data. Estimate: 1–2 days plus a short downtime for the data copy.
+
 ## Multi-arch image builds
 
 CD workflow builds `linux/amd64` only. Add `linux/arm64` to [.github/workflows/publish-app-image.yaml](.github/workflows/publish-app-image.yaml) if we ever target arm nodes.

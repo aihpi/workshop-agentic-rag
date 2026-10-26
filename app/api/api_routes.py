@@ -199,7 +199,7 @@ async def hard_delete_user(identifier: str) -> dict[str, Any]:
     """Orchestrate a full user teardown across Qdrant, disk, SQLite, Postgres.
 
     Called by both delete endpoints (DELETE /api/me, DELETE /api/admin/users/{id})
-    and by the scheduled inactivity purge CLI (app.cli.purge_inactive).
+    and by the daily in-process inactivity purge (app.cli.purge_inactive).
 
     The ordering (Qdrant/disk → SQLite → Postgres) is deliberate: we need the
     KB rows to enumerate collections+files, so drop external resources first

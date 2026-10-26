@@ -2646,6 +2646,12 @@ async def on_app_startup() -> None:
     from kb import docling_scaler
     asyncio.create_task(docling_scaler.idle_scaledown_loop())
 
+    # Daily inactive-user purge. Runs here, not as a CronJob, so the SQLite
+    # file on the NFS PVC is only ever opened from this pod (issue #1).
+    if DATABASE_URL:
+        from cli.purge_inactive import purge_loop
+        asyncio.create_task(purge_loop())
+
     # Register user-scoped API routes + static settings UI regardless of whether
     # the Postgres native chat schema is configured — they only depend on SQLite
     # + Chainlit auth.
